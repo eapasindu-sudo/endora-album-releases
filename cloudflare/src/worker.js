@@ -2,7 +2,7 @@
 // Desktop app API (album upload), private client viewer, comments, approvals.
 import VIEWER_HTML from './viewer.html';
 
-export const WORKER_VERSION = 3;
+export const WORKER_VERSION = 4;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
@@ -29,6 +29,34 @@ function safeEqual(a, b) {
   return r === 0;
 }
 async function body(req) { try { return await req.json(); } catch { return {}; } }
+
+// ---------- album covers the client can choose ----------
+export const COVER = {
+  materials: {
+    leather: ['#4A3226', '#1C1C1E', '#A9774A', '#5C1F2B', '#1F2C44', '#E9E1D2'],
+    linen: ['#D8CDB8', '#9A9893', '#9FAF96', '#D9B8AE', '#2C3B57', '#3A3A3C'],
+    velvet: ['#5A1A2A', '#1F4D3A', '#23366B', '#141416', '#C28E92', '#CBB48F']
+  },
+  styles: ['plain', 'glass', 'photo'],
+  finishes: ['gold', 'silver', 'rosegold', 'black']
+};
+function cleanCoverOptions(o) {
+  if (!o || !o.enabled) return null;
+  const materials = (o.materials || []).filter((m) => COVER.materials[m]);
+  const styles = (o.styles || []).filter((x) => COVER.styles.includes(x));
+  return { enabled: true, materials: materials.length ? materials : Object.keys(COVER.materials), styles: styles.length ? styles : ['plain'], tag: !!o.tag };
+}
+function cleanCoverChoice(c, opts, spreads) {
+  if (!c || !opts) return null;
+  const material = opts.materials.includes(c.material) ? c.material : null;
+  if (!material) return null;
+  const color = COVER.materials[material].includes(String(c.color).toUpperCase()) ? String(c.color).toUpperCase() : COVER.materials[material][0];
+  const style = opts.styles.includes(c.style) ? c.style : opts.styles[0];
+  const out = { material, color, style };
+  if (style !== 'plain' && c.photo) out.photo = { spread: Math.max(0, Math.min(spreads - 1, c.photo.spread | 0)), side: c.photo.side === 'L' ? 'L' : 'R' };
+  if (opts.tag && c.tag && c.tag.on) out.tag = { on: true, text: String(c.tag.text || '').slice(0, 40), finish: COVER.finishes.includes(c.tag.finish) ? c.tag.finish : 'gold' };
+  return out;
+}
 
 // secret for client viewer tokens, created once and kept in the database
 let cachedSecret = null;
@@ -101,6 +129,7 @@ async function apiRoutes(req, env, url) {
       await env.DB.prepare(`UPDATE albums SET couple = ?, date = ?, aspect = ?, spreads = ?, version = ?, pin = ?, cover = ?, video_pos = ?, music = ?, perms = ?, sections = ?, expires_at = ?, studio = ?, updated_at = ? WHERE id = ?`)
         .bind(...common, album.id).run();
     }
+    await env.DB.prepare('UPDATE albums SET cover_options = ? WHERE id = ?').bind(JSON.stringify(cleanCoverOptions(b.coverOptions)), album.id).run();
     const uploads = [];
     for (let i = 0; i < spreads; i++) uploads.push({ kind: 'spread', index: i, route: `/api/albums/${album.id}/spread/${i + 1}?v=${version}` });
     if (b.video && (b.replaceVideo || !album.video_key)) uploads.push({ kind: 'video', route: `/api/albums/${album.id}/video`, contentType: b.video.type || 'video/mp4' });
@@ -175,7 +204,8 @@ async function apiRoutes(req, env, url) {
   if (!sub && m === 'GET') {
     const { results } = await env.DB.prepare('SELECT * FROM comments WHERE album_id = ? ORDER BY created_at DESC').bind(album.id).all();
     return json({
-      album: { id: album.id, slug: album.slug, views: album.views, approvedAt: album.approved_at, approvedBy: album.approved_by, active: !!album.active },
+      album: { id: album.id, slug: album.slug, views: album.views, approvedAt: album.approved_at, approvedBy: album.approved_by, active: !!album.active,
+        coverChoice: album.cover_choice ? JSON.parse(album.cover_choice) : null, coverChosenAt: album.cover_chosen_at },
       comments: results.map((c) => ({ id: c.id, spread: c.spread, x: c.x, y: c.y, kind: c.kind, name: c.name, text: c.text, resolved: !!c.resolved, createdAt: c.created_at }))
     });
   }
@@ -212,7 +242,7 @@ async function liveAlbum(env, slug) {
 }
 
 async function viewerRoutes(req, env, url) {
-  const vm = url.pathname.match(/^\/v\/([A-Za-z0-9]{6,20})\/(unlock|meta|file\/spread_(\d{2,3})\.jpg|video|comments|approve)$/);
+  const vm = url.pathname.match(/^\/v\/([A-Za-z0-9]{6,20})\/(unlock|meta|file\/spread_(\d{2,3})\.jpg|video|comments|approve|cover)$/);
   if (!vm) return bad('Not found', 404);
   const { album, error, status } = await liveAlbum(env, vm[1]);
   if (!album) return bad(error, status);
@@ -238,6 +268,8 @@ async function viewerRoutes(req, env, url) {
       couple: album.couple, date: album.date, studio: album.studio, aspect: album.aspect, spreads,
       version: album.live_version, cover: album.cover, videoPos: album.video_key ? album.video_pos : 'none', hasVideo: !!album.video_key,
       sections: JSON.parse(album.sections || '[]'), perms, approvedAt: album.approved_at, approvedBy: album.approved_by,
+      coverOptions: album.cover_options ? JSON.parse(album.cover_options) : null,
+      coverChoice: album.cover_choice ? JSON.parse(album.cover_choice) : null,
       comments: results
     });
   }
@@ -289,6 +321,17 @@ async function viewerRoutes(req, env, url) {
     const res = await env.DB.prepare('INSERT INTO comments (album_id, spread, x, y, kind, name, text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(album.id, spread, clamp(b.x), clamp(b.y), kind, String(b.name || '').slice(0, 60), text, now()).run();
     return json({ id: res.meta.last_row_id, createdAt: now() });
+  }
+  if (action === 'cover' && req.method === 'POST') {
+    const opts = album.cover_options ? JSON.parse(album.cover_options) : null;
+    if (!opts) return bad('Your photographer has not turned on cover choice for this album.', 403);
+    if (album.approved_at) return bad('The album is already approved, so the cover can no longer be changed here. Please ask your photographer.', 409);
+    const b = await body(req);
+    const choice = cleanCoverChoice(b.choice, opts, spreads);
+    if (!choice) return bad('Please choose a material first.');
+    if (b.name) choice.by = String(b.name).slice(0, 60);
+    await env.DB.prepare('UPDATE albums SET cover_choice = ?, cover_chosen_at = ? WHERE id = ?').bind(JSON.stringify(choice), now(), album.id).run();
+    return json({ ok: true, choice });
   }
   if (action === 'approve' && req.method === 'POST') {
     if (!perms.approve) return bad('Approval is turned off for this album.', 403);

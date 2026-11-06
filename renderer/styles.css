@@ -251,3 +251,24 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
 .art-tile .x { position: absolute; right: -6px; top: -8px; width: 22px; height: 22px; border-radius: 11px; background: var(--bg2); border: 1px solid var(--line2); display: flex; align-items: center; justify-content: center; }
 .floatbar .sw { width: 22px; height: 22px; border-radius: 11px; border: 2px solid var(--line2); padding: 0; }
 .floatbar .sw.on { border-color: var(--gold); }
+
+/* album cover preview (same look as the client link) */
+.cvr { position: relative; overflow: hidden; border-radius: 2px 5px 5px 2px; box-shadow: 0 14px 30px rgba(0,0,0,.45), 5px 0 0 -2px #e9e3d6; flex: 0 0 auto; }
+.cvr .tex { position: absolute; inset: 0; }
+.tex-leather { background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1.4px), radial-gradient(rgba(0,0,0,.18) 1px, transparent 1.6px), linear-gradient(135deg, rgba(255,255,255,.10), rgba(0,0,0,.18)); background-size: 5px 5px, 7px 7px, 100% 100%; background-position: 0 0, 2px 3px, 0 0; }
+.tex-linen { background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px), linear-gradient(160deg, rgba(255,255,255,.08), rgba(0,0,0,.10)); }
+.tex-velvet { background-image: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,.28), transparent 55%), radial-gradient(ellipse at 80% 90%, rgba(0,0,0,.35), transparent 60%); }
+.cvr .stitch { position: absolute; inset: 3.5%; border: 1px dashed rgba(255,255,255,.28); border-radius: 2px; }
+.cvr .spine { position: absolute; left: 0; top: 0; bottom: 0; width: 7%; background: linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,.05) 70%, rgba(255,255,255,.08)); }
+.cvr .win { position: absolute; left: 17%; top: 12%; width: 66%; height: 52%; overflow: hidden; background: #222; box-shadow: 0 0 0 1.5px rgba(255,255,255,.35), 0 3px 10px rgba(0,0,0,.45); }
+.cvr .full { position: absolute; inset: 0; overflow: hidden; background: #222; }
+.cvr .gloss { position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.38) 0%, rgba(255,255,255,.08) 28%, rgba(255,255,255,0) 45%, rgba(255,255,255,.10) 80%); pointer-events: none; }
+.cvr .tag { position: absolute; left: 22%; width: 56%; height: 10%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 600; letter-spacing: .04em; box-shadow: 0 1px 3px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; }
+.tag-gold { background: linear-gradient(180deg, #F6E3A8, #C9A35A 55%, #E8CF8A); color: #5A4317; }
+.tag-silver { background: linear-gradient(180deg, #F4F5F7, #A9ADB3 55%, #DDE0E4); color: #3D4148; }
+.tag-rosegold { background: linear-gradient(180deg, #F8D9CC, #C48A78 55%, #EBC0B0); color: #5E3328; }
+.tag-black { background: linear-gradient(180deg, #3A3A3D, #111113 60%, #2A2A2D); color: #E2C88F; }
+.cvr .foil { position: absolute; left: 8%; right: 8%; text-align: center; font-family: var(--serif); }
+.cvr .foil b { display: block; font-weight: 600; line-height: 1.1; }
+.cvr .foil span { display: block; letter-spacing: .3em; text-transform: uppercase; margin-top: 4px; opacity: .9; }
+.page-crop { position: absolute; top: 0; height: 100%; overflow: hidden; }

@@ -8,6 +8,7 @@ import { spreadHTML } from '../lib/render-spread.js';
 import { exportAlbum } from '../lib/exporter.js';
 import { publishAlbum, fetchFeedback, setLinkActive, resolveComment } from '../lib/cloud.js';
 import { hasFaceDetection } from '../lib/analysis.js';
+import { MATERIALS, COVER_STYLES, defaultCoverOptions, coverHTML, coverSummary } from '../lib/covers.js';
 
 const api = window.api;
 
@@ -455,7 +456,7 @@ export function printCheckModal(tab = 'check') {
     const s = p.spreads[state.sel.spread];
     const H = Math.min(230, 470 / info.aspect);
     const pv = mode === 'mock'
-      ? `<div class="mock-stage"><div class="mock-book" style="background:${esc(p.share.cover || '#3B2E25')}">${spreadHTML(s, p, state.byId, { height: H * 0.9 })}</div></div>`
+      ? `<div class="mock-stage"><div class="mock-book" style="background:${esc((p.cloud && p.cloud.coverChoice && p.cloud.coverChoice.color) || p.share.cover || '#3B2E25')}">${spreadHTML(s, p, state.byId, { height: H * 0.9 })}</div></div>`
       : `<div style="background:var(--stage);border-radius:12px;padding:24px;display:flex;justify-content:center">${spreadHTML(s, p, state.byId, { height: H, guides: mode === 'guides', showDpi: true, filter: mode === 'proof' ? 'saturate(.85) brightness(.96) contrast(.97)' : '' })}</div>`;
     const issue = (ok, title, sub, go) => `<div class="issue"><span class="dot ${ok ? 'ok' : 'warn'}">${ok ? '✓' : '!'}</span><div class="grow"><div>${title}</div><div class="small muted">${sub}</div></div>${go ? `<button class="btn ghost" data-go="${go}" style="height:28px">Show</button>` : ''}</div>`;
     m.el.querySelector('[data-pc]').innerHTML = `
@@ -529,9 +530,20 @@ export async function shareModal() {
   let busy = null, qr = null, feedback = null;
   const m = openModal('<div data-sh></div>');
   const covers = [['Brown leather', '#3B2E25'], ['Black leather', '#1B1B1D'], ['Ivory linen', '#E6DED0'], ['Burgundy velvet', '#5A2430'], ['Navy linen', '#24324A'], ['Forest green', '#24352B']];
+  if (!sh.coverOptions) sh.coverOptions = defaultCoverOptions();
+  const co = sh.coverOptions;
+  const pagePhoto = (si, side, w, h) => {
+    const s = p.spreads[Math.min(si, p.spreads.length - 1)];
+    if (!s) return '';
+    const A = sizeInfo(p.size).aspect;
+    const Hs = Math.max(h, w / (A / 2));
+    const left = side === 'L' ? 0 : -(Hs * A / 2);
+    return `<div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;left:${left + (w - Hs * A / 2) / 2}px;top:${(h - Hs) / 2}px">${spreadHTML(s, p, state.byId, { height: Hs })}</div></div>`;
+  };
   const draw = () => {
     const c = p.cloud;
     const comments = p.comments || [];
+    const choice = c && c.coverChoice;
     m.el.querySelector('[data-sh]').innerHTML = `
       ${head('Send album to client', 'The couple opens one private link on their phone: the film first, then the album turns like a real book.')}
       <div class="modal-body"><div class="two">
@@ -542,9 +554,16 @@ export async function shareModal() {
             <div class="seg">${[['before', 'Before album opens'], ['page', 'Inside the album'], ['end', 'Last page']].map(([v, l]) => `<button class="${sh.videoPos === v ? 'on' : ''}" data-vpos="${v}">${l}</button>`).join('')}</div>` : '<span class="small muted">Optional · MP4 or MOV</span>'}
           </div>
           <div class="box col" style="gap:10px">
-            <b>Cover on the link</b>
+            <b>Cover colour until the client chooses</b>
             <div class="row" style="flex-wrap:wrap">${covers.map(([n, col]) => `<button class="swatch ${sh.cover === col ? 'on' : ''}" data-cover="${col}" title="${n}" aria-label="${n}" style="width:40px;background:${col}"></button>`).join('')}</div>
             <label class="field">Background music<select name="music"><option value="video" ${sh.music === 'video' ? 'selected' : ''}>Use video sound</option><option value="none" ${sh.music === 'none' ? 'selected' : ''}>No music</option></select></label>
+          </div>
+          <div class="box col" style="gap:4px">
+            <label class="check"><input type="checkbox" data-co="enabled" ${co.enabled ? 'checked' : ''}><b>Let the client design the album cover</b></label>
+            ${co.enabled ? `<span class="small muted" style="padding-left:25px">The client picks the style, material, colour, glass top photo and name tag on the link.</span>
+            <div class="row small" style="padding-left:25px;flex-wrap:wrap;gap:12px;margin-top:4px">${Object.entries(MATERIALS).map(([k, m]) => `<label class="check"><input type="checkbox" data-com="${k}" ${co.materials.includes(k) ? 'checked' : ''}>${m.name}</label>`).join('')}</div>
+            <div class="row small" style="padding-left:25px;flex-wrap:wrap;gap:12px">${Object.entries(COVER_STYLES).map(([k, n]) => `<label class="check"><input type="checkbox" data-cos="${k}" ${co.styles.includes(k) ? 'checked' : ''}>${n}</label>`).join('')}
+              <label class="check"><input type="checkbox" data-co="tag" ${co.tag ? 'checked' : ''}>Name tag</label></div>` : ''}
           </div>
           <div class="box col" style="gap:2px">
             <b style="margin-bottom:6px">Client can…</b>
@@ -566,6 +585,14 @@ export async function shareModal() {
             <button class="btn gold lg" data-act="publish" ${busy ? 'disabled' : ''}>${ICON.send}${c ? 'Update the album on the link' : 'Upload & create link'}</button>
             ${c ? '<span class="small muted">Updating keeps the same link and PIN. The couple sees the new design when they open it again.</span>' : ''}
           </div>
+          ${c && co.enabled ? `<div class="box col" style="gap:10px">
+            <b>Album cover chosen by the client</b>
+            ${choice ? `<div class="row" style="gap:14px;align-items:flex-start">
+                ${coverHTML(choice, { couple: p.couple, date: p.date, aspect: sizeInfo(p.size).aspect, W: 130, photoHTML: pagePhoto })}
+                <div class="col" style="gap:4px"><span class="small">${esc(coverSummary(choice))}</span>
+                <span class="small muted">${choice.by ? 'by ' + esc(choice.by) + ' · ' : ''}${c.coverChosenAt ? new Date(c.coverChosenAt).toLocaleString('en-GB') : ''}</span></div></div>`
+              : '<span class="small muted">Not chosen yet. The client sees a "Design your album cover" button on the link.</span>'}
+          </div>` : ''}
           ${c ? `<div class="box col" style="gap:8px;max-height:300px;overflow:auto">
             <div class="row"><b class="grow">Client comments</b><button class="btn ghost" data-act="sync" style="height:28px">Refresh</button></div>
             ${comments.length ? comments.map((x) => `<div class="comment" style="${x.resolved ? 'opacity:.55' : ''}">
@@ -588,6 +615,9 @@ export async function shareModal() {
   m.el.addEventListener('change', (e) => {
     const t = e.target;
     if (t.dataset.perm) sh.perms[t.dataset.perm] = t.checked;
+    if (t.dataset.co) { co[t.dataset.co] = t.checked; if (t.dataset.co === 'enabled') draw(); }
+    if (t.dataset.com) { co.materials = t.checked ? [...new Set([...co.materials, t.dataset.com])] : co.materials.filter((x) => x !== t.dataset.com); if (!co.materials.length) { co.materials = [t.dataset.com]; t.checked = true; } }
+    if (t.dataset.cos) { co.styles = t.checked ? [...new Set([...co.styles, t.dataset.cos])] : co.styles.filter((x) => x !== t.dataset.cos); if (!co.styles.length) { co.styles = [t.dataset.cos]; t.checked = true; } }
     if (t.name === 'music') sh.music = t.value;
     if (t.name === 'expiry') sh.expiryDays = +t.value;
     if (t.name === 'studio') api.settings.set({ studio: t.value.trim() }).then((x) => { state.settings = x; });

@@ -86,7 +86,7 @@ async function setup({ token, label, onStep, fetchImpl, waitMs = 90000 }) {
 
   step('Preparing the database tables');
   const statements = b.schema.replace(/--.*$/gm, '').split(';').map((s) => s.trim()).filter(Boolean);
-  for (const sql of statements) await run('Database tables', () => cf('POST', `${acc}/d1/database/${dbId}/query`, { sql }));
+  for (const sql of statements) await run('Database tables', () => runSql(cf, acc, dbId, sql));
 
   step('Creating photo storage (R2)');
   let haveBucket = false;
@@ -130,6 +130,12 @@ async function setup({ token, label, onStep, fetchImpl, waitMs = 90000 }) {
   };
 }
 
+// ALTER TABLE … ADD COLUMN fails when the column is already there: that is fine.
+async function runSql(cf, acc, dbId, sql) {
+  try { return await cf('POST', `${acc}/d1/database/${dbId}/query`, { sql }); }
+  catch (e) { if (/^ALTER TABLE/i.test(sql) && /duplicate column/i.test(e.message)) return null; throw e; }
+}
+
 async function deployScript(cf, acc, dbId, b) {
   b = b || bundledWorker();
   const form = new FormData();
@@ -155,7 +161,7 @@ async function upgradeIfNeeded({ token, config, fetchImpl }) {
   const cf = makeClient(token, fetchImpl);
   const acc = `/accounts/${config.accountId}`;
   const statements = b.schema.replace(/--.*$/gm, '').split(';').map((s) => s.trim()).filter(Boolean);
-  for (const sql of statements) await cf('POST', `${acc}/d1/database/${config.dbId}/query`, { sql });
+  for (const sql of statements) await runSql(cf, acc, config.dbId, sql);
   await deployScript(cf, acc, config.dbId, b);
   return b.version;
 }

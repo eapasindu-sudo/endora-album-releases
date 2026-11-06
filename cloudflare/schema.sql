@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS albums (
   approved_at INTEGER,
   approved_by TEXT,
   studio TEXT,
+  cover_options TEXT,
+  cover_choice TEXT,
+  cover_chosen_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -60,3 +63,8 @@ CREATE TABLE IF NOT EXISTS attempts (
   count INTEGER NOT NULL,
   reset_at INTEGER NOT NULL
 );
+
+-- upgrades for databases made by older versions (errors about existing columns are ignored)
+ALTER TABLE albums ADD COLUMN cover_options TEXT;
+ALTER TABLE albums ADD COLUMN cover_choice TEXT;
+ALTER TABLE albums ADD COLUMN cover_chosen_at INTEGER;

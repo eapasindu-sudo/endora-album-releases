@@ -86,6 +86,7 @@ npm run dist:win   # Windows installer එක dist/ folder එකට (Windows PC
 - **Album | Designer**: spreads ඔක්කොම එක පේළියට, Text packs (Sinhala/Tamil/English), backgrounds, drag & drop, crop/zoom, undo/redo
 - **Print check / Export**: guides, print proof, mockup, DPI warnings, JPG/TIFF 300 DPI with bleed
 - **Send to client**: Cloudflare link එක + PIN, video, cover, comments, approve, WhatsApp/Email/QR
+- **Client ම album cover එක design කරනවා**: flipbook එකේ "Design your album cover" button එකෙන් client ට style එක (Plain / Glass top / Photo cover), material එක (Leather / Linen / Velvet), colour එක, glass top එකට දාන photo එක, සහ name tag එක (Gold / Silver / Rose gold / Black + නම) තෝරන්න පුළුවන්. Cover එක live පේනවා. Save කළාම app එකේ Send to client එකේ ඒ cover එකම පේනවා. Offer කරන්න ඕනේ materials සහ styles ඔයාට තෝරන්න පුළුවන්.
 - **Settings**: studio name, Cloudflare connect/disconnect, check for updates, dark/light theme
 
 ## දැනට නැති දේවල්

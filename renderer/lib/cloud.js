@@ -31,6 +31,7 @@ export async function publishAlbum(project, byId, onStep) {
     aspect: sizeInfo(project.size).aspect, spreads: n,
     pin, cover: share.cover, videoPos: share.video ? share.videoPos : 'none', music: share.music,
     perms: share.perms, expiryDays: share.expiryDays,
+    coverOptions: share.coverOptions || null,
     sections: project.spreads.map((s) => s.section || ''),
     video: share.video ? { name: share.video.name, bytes: share.video.bytes, type: videoType(share.video.name) } : null,
     replaceVideo: !!(share.video && (!project.cloud || project.cloud.videoPath !== share.video.path))
@@ -78,6 +79,8 @@ export async function fetchFeedback(project) {
   project.cloud.views = r.album ? r.album.views : 0;
   project.cloud.approvedAt = r.album ? r.album.approvedAt : null;
   project.cloud.approvedBy = r.album ? r.album.approvedBy : null;
+  project.cloud.coverChoice = r.album ? r.album.coverChoice : null;
+  project.cloud.coverChosenAt = r.album ? r.album.coverChosenAt : null;
   return r;
 }
 
