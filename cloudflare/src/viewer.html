@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0E0E10">
+<title>Wedding album</title>
+<style>
+:root { --gold: #D4B47C; --bg: #0E0E10; --bg2: #1A1A1E; --line: #34343B; --text: #EDEAE4; --muted: #A9A49C; --serif: 'Cormorant Garamond', 'Iowan Old Style', Georgia, 'Times New Roman', serif; --sans: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.45 var(--sans); overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; }
+.hidden { display: none !important; }
+.center { align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 18px; }
+.serif { font-family: var(--serif); }
+.btn { height: 50px; padding: 0 22px; border-radius: 25px; border: 1px solid var(--line); background: var(--bg2); font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.gold { background: var(--gold); color: #17140D; border-color: var(--gold); font-weight: 600; }
+.btn:disabled { opacity: .45; }
+a.round { color: var(--text); }
+.round { width: 48px; height: 48px; border-radius: 24px; border: 1px solid var(--line); background: var(--bg2); display: inline-flex; align-items: center; justify-content: center; }
+.pin { display: flex; gap: 10px; justify-content: center; }
+.pin input { width: 54px; height: 64px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); text-align: center; font-size: 26px; outline: none; }
+.pin input:focus { border-color: var(--gold); }
+.err { color: #F0B497; min-height: 22px; font-size: 14px; }
+.kicker { font-family: var(--serif); font-style: italic; color: var(--gold); font-size: 19px; }
+h1 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; }
+video { width: 100%; max-width: 900px; border-radius: 12px; background: #000; }
+header.bar { display: flex; align-items: center; justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 18px 10px; gap: 12px; }
+header.bar .t { display: flex; flex-direction: column; min-width: 0; }
+header.bar .t b { font-family: var(--serif); font-size: 22px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header.bar .t span { font-size: 12px; color: var(--muted); }
+.table { flex: 1; display: flex; align-items: center; justify-content: center; perspective: 1800px; background: radial-gradient(ellipse at center, #221d16 0%, #120f0b 75%); overflow: hidden; touch-action: pan-y; }
+.book { position: relative; transform-style: preserve-3d; transition: transform .6s ease; cursor: pointer; }
+.leaf { position: absolute; top: 0; transform-origin: left center; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.45,.05,.2,1); }
+.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; background: #F3EFE8 no-repeat; background-size: 200% 100%; }
+.face.back { transform: rotateY(180deg); }
+.face.r::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(0,0,0,0) 12%); pointer-events: none; }
+.face.l::after { content: ''; position: absolute; inset: 0; background: linear-gradient(270deg, rgba(0,0,0,.22), rgba(0,0,0,0) 12%); pointer-events: none; }
+.cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 10%; }
+.cover b { font-family: var(--serif); font-weight: 600; color: var(--gold); line-height: 1.1; }
+.cover span { letter-spacing: 3px; color: #C9A86A; text-transform: uppercase; }
+.paper { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #6b5a48; font-family: var(--serif); text-align: center; padding: 10%; }
+.filmpage { background: #1a1614; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fff; }
+.play { width: 58px; height: 58px; border-radius: 29px; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; }
+.base { position: absolute; top: 0; background: #F3EFE8; box-shadow: 0 22px 40px rgba(0,0,0,.55); }
+.wm { position: absolute; inset: 0; pointer-events: none; opacity: .16; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120'><text x='10' y='70' transform='rotate(-20 110 60)' font-family='Georgia' font-size='22' fill='white' stroke='black' stroke-width='.4'>PREVIEW</text></svg>"); }
+footer.ctl { padding: 14px 18px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.prog { height: 4px; border-radius: 2px; background: var(--line); }
+.prog div { height: 100%; border-radius: 2px; background: var(--gold); transition: width .4s; }
+.hint { text-align: center; font-size: 12px; color: var(--muted); }
+.lb { position: fixed; inset: 0; background: #08080A; display: flex; flex-direction: column; z-index: 20; }
+.lb-img { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; min-height: 0; }
+.lb-wrap { position: relative; max-width: 100%; max-height: 100%; }
+.lb-wrap img { display: block; max-width: 100%; max-height: calc(100vh - 290px); user-select: none; -webkit-user-drag: none; }
+.lb-wrap.placing { cursor: crosshair; outline: 2px dashed var(--gold); outline-offset: 4px; }
+.dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 13px; background: var(--gold); color: #17140D; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px rgba(212,180,124,.35); }
+.dot.swap { background: #9CCBF0; color: #10202C; box-shadow: 0 0 0 3px rgba(156,203,240,.35); }
+.sheet { background: #141416; border-top: 1px solid var(--line); padding: 14px 16px max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow: auto; }
+.cm { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg2); font-size: 14px; }
+.cm .h { display: flex; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 4px; align-items: center; }
+.seg { display: inline-flex; gap: 6px; }
+.seg button { height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+.seg button.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+textarea, input.txt { width: 100%; border-radius: 14px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); padding: 10px 14px; font: inherit; outline: none; resize: none; }
+textarea:focus, input.txt:focus { border-color: var(--gold); }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 40; }
+.modal .box { width: min(480px, 100%); background: #17171A; border-radius: 20px 20px 0 0; padding: 22px 20px max(24px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 700px) { .modal { align-items: center; } .modal .box { border-radius: 20px; } }
+.ok { width: 52px; height: 52px; border-radius: 26px; background: #1E2B22; color: #9FD8AE; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.banner { background: #1E2B22; color: #9FD8AE; text-align: center; font-size: 13px; padding: 8px; }
+.toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; z-index: 60; font-weight: 500; max-width: 90vw; }
+</style>
+</head>
+<body>
+<!-- PIN -->
+<section class="screen center" id="gate">
+  <div class="kicker">your wedding album</div>
+  <h1>Enter your PIN</h1>
+  <div style="color:var(--muted);max-width:320px">Your photographer sent you a PIN with this link.</div>
+  <form id="pinform" class="col" autocomplete="off">
+    <div class="pin" id="pinboxes">
+      <input inputmode="numeric" maxlength="1" aria-label="PIN digit 1"><input inputmode="numeric" maxlength="1" aria-label="PIN digit 2"><input inputmode="numeric" maxlength="1" aria-label="PIN digit 3"><input inputmode="numeric" maxlength="1" aria-label="PIN digit 4">
+    </div>
+  </form>
+  <div class="err" id="pinerr" role="alert"></div>
+  <button class="btn gold" id="pinbtn" style="min-width:220px">Open album</button>
+</section>
+
+<!-- film before the album -->
+<section class="screen center hidden" id="intro">
+  <div><div class="kicker">a film for</div><h1 id="introNames"></h1></div>
+  <video id="introVideo" controls playsinline preload="metadata"></video>
+  <button class="btn gold" id="openBook" style="min-width:240px">Open the album</button>
+</section>
+
+<!-- book -->
+<section class="screen hidden" id="bookScreen">
+  <div class="banner hidden" id="approvedBanner"></div>
+  <header class="bar">
+    <div class="t"><b id="names"></b><span id="sub"></span></div>
+    <div class="row">
+      <button class="round" id="soundBtn" aria-label="Page sound on or off"></button>
+      <button class="round hidden" id="filmBtn" aria-label="Watch the film"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></button>
+    </div>
+  </header>
+  <div class="table" id="table"><div class="book" id="book"></div></div>
+  <footer class="ctl">
+    <div class="row between">
+      <button class="round" id="prev" aria-label="Previous page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span id="label" style="font-size:14px;color:#CFCBC4"></span>
+      <button class="round" id="next" aria-label="Next page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="prog"><div id="bar" style="width:0"></div></div>
+    <div class="row">
+      <button class="btn" id="largeBtn" style="flex:1">View large &amp; comment</button>
+      <button class="btn gold hidden" id="approveBtn" style="flex:1">Approve album</button>
+    </div>
+    <div class="hint" id="hint">Tap or swipe the book to turn the page</div>
+  </footer>
+</section>
+
+<!-- large view + comments -->
+<section class="lb hidden" id="lb">
+  <header class="bar">
+    <div class="t"><b id="lbTitle"></b><span id="lbSub">Tap “Add a note”, then tap the photo</span></div>
+    <div class="row">
+      <a class="round hidden" id="dlBtn" aria-label="Download this spread" download><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg></a>
+      <button class="round" id="lbClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+  </header>
+  <div class="lb-img"><div class="lb-wrap" id="lbWrap"><img id="lbImg" alt=""><div class="wm hidden" id="lbWm"></div></div></div>
+  <div class="sheet" id="sheet">
+    <div class="row between"><div class="row"><button class="round" id="lbPrev" aria-label="Previous spread" style="width:40px;height:40px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg></button><button class="round" id="lbNext" aria-label="Next spread" style="width:40px;height:40px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg></button></div>
+      <button class="btn" id="addNote" style="height:40px">Add a note</button></div>
+    <div id="composer" class="hidden" style="display:flex;flex-direction:column;gap:10px">
+      <div class="seg" id="kindSeg"><button class="on" data-kind="comment">Comment</button><button data-kind="swap">Swap this photo</button></div>
+      <textarea id="noteText" rows="2" placeholder="Write a note for your photographer"></textarea>
+      <div class="row"><button class="btn" id="cancelNote" style="flex:1;height:44px">Cancel</button><button class="btn gold" id="sendNote" style="flex:1;height:44px">Send</button></div>
+    </div>
+    <div id="cmList"></div>
+  </div>
+</section>
+
+<!-- film overlay -->
+<section class="lb hidden" id="filmLb" style="align-items:center;justify-content:center;padding:16px;gap:14px">
+  <video id="filmVideo" controls playsinline preload="metadata"></video>
+  <button class="btn" id="filmClose">Back to the album</button>
+</section>
+
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+  const slug = location.pathname.split('/').filter(Boolean).pop();
+  const KEY = 'endora:' + slug;
+  const $ = (id) => document.getElementById(id);
+  let token = sessionStorage.getItem(KEY) || '';
+  let meta = null, cur = 0, seq = [], lbIndex = 0, placing = false, pending = null, kind = 'comment';
+  let sound = localStorage.getItem('endora:sound') !== 'off';
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const toast = (m) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2800); };
+  const api = async (path, opts = {}) => {
+    const r = await fetch('/v/' + slug + path, { ...opts, headers: { 'content-type': 'application/json', 'x-album-token': token, ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { sessionStorage.removeItem(KEY); token = ''; show('gate'); throw new Error(j.error || 'Please enter the PIN again.'); }
+    if (!r.ok) throw new Error(j.error || 'Something went wrong');
+    return j;
+  };
+  const fileUrl = (i) => `/v/${slug}/file/spread_${String(i + 1).padStart(2, '0')}.jpg?t=${token}&v=${meta.version}`;
+  const show = (id) => ['gate', 'intro', 'bookScreen'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+
+  // ---------- PIN ----------
+  const boxes = [...document.querySelectorAll('#pinboxes input')];
+  boxes.forEach((b, i) => {
+    b.addEventListener('input', () => { b.value = b.value.replace(/\D/g, '').slice(-1); if (b.value && boxes[i + 1]) boxes[i + 1].focus(); if (boxes.every((x) => x.value)) unlock(); });
+    b.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !b.value && boxes[i - 1]) boxes[i - 1].focus(); });
+    b.addEventListener('paste', (e) => { const d = (e.clipboardData.getData('text') || '').replace(/\D/g, ''); if (d.length >= 4) { e.preventDefault(); boxes.forEach((x, k) => { x.value = d[k] || ''; }); unlock(); } });
+  });
+  $('pinbtn').onclick = unlock;
+  async function unlock() {
+    const pin = boxes.map((b) => b.value).join('');
+    if (pin.length < 4) { $('pinerr').textContent = 'Enter all 4 numbers.'; return; }
+    $('pinbtn').disabled = true;
+    try {
+      const r = await fetch('/v/' + slug + '/unlock', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pin }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Could not open the album');
+      token = j.token; sessionStorage.setItem(KEY, token);
+      await start();
+    } catch (e) { $('pinerr').textContent = e.message; boxes.forEach((b) => { b.value = ''; }); boxes[0].focus(); }
+    $('pinbtn').disabled = false;
+  }
+
+  // ---------- start ----------
+  async function start() {
+    meta = await api('/meta');
+    document.title = meta.couple + ' · Wedding album';
+    $('names').textContent = meta.couple; $('introNames').textContent = meta.couple;
+    $('sub').textContent = [meta.date, meta.studio].filter(Boolean).join(' · ');
+    $('approveBtn').classList.toggle('hidden', !meta.perms.approve);
+    $('filmBtn').classList.toggle('hidden', !meta.hasVideo);
+    $('largeBtn').textContent = meta.perms.comment || meta.perms.swap ? 'View large & comment' : 'View large';
+    updateApproved();
+    const vsrc = `/v/${slug}/video?t=${token}`;
+    if (meta.hasVideo) { $('introVideo').src = vsrc; $('filmVideo').src = vsrc; }
+    seq = meta.spreads ? Array.from({ length: meta.spreads }, (_, i) => ({ type: 'img', i })) : [];
+    if (meta.hasVideo && meta.videoPos === 'page') seq.splice(Math.min(1, seq.length), 0, { type: 'film' });
+    if (meta.hasVideo && meta.videoPos === 'end') seq.push({ type: 'film' });
+    buildBook();
+    if (meta.hasVideo && meta.videoPos === 'before' && !sessionStorage.getItem(KEY + ':seen')) show('intro');
+    else show('bookScreen');
+    layout();
+  }
+  $('openBook').onclick = () => { $('introVideo').pause(); sessionStorage.setItem(KEY + ':seen', '1'); show('bookScreen'); layout(); };
+
+  // ---------- book ----------
+  let pageW = 160, pageH = 240;
+  function pageFace(item, side, isBack) {
+    const cls = 'face ' + (side === 'L' ? 'l' : 'r') + (isBack ? ' back' : '');
+    const wm = meta.perms.watermark ? '<div class="wm"></div>' : '';
+    if (item === 'cover') return `<div class="${cls} cover" style="background:${esc(meta.cover || '#3B2E25')}"><b class="cn">${esc(meta.couple)}</b><span class="cd">${esc(meta.date || '')}</span></div>`;
+    if (item === 'end') return `<div class="${cls} paper"><i style="font-size:1.4em">Thank you</i><small style="font-family:var(--sans);font-size:.7em;letter-spacing:2px;text-transform:uppercase">${esc(meta.studio || '')}</small></div>`;
+    if (item.type === 'film') return side === 'L'
+      ? `<div class="${cls} filmpage" data-film="1"><div class="play"><svg width="22" height="22" viewBox="0 0 24 24" fill="#141416"><path d="M8 5v14l11-7z"/></svg></div><small>Tap to play</small></div>`
+      : `<div class="${cls} paper"><i style="font-size:1.3em">Our wedding film</i><small style="font-family:var(--sans)">${esc(meta.couple)}</small></div>`;
+    return `<div class="${cls}" style="background-image:url('${fileUrl(item.i)}');background-position:${side === 'L' ? 'left' : 'right'} center">${wm}</div>`;
+  }
+  function buildBook() {
+    const L = seq.length + 1;
+    let html = '<div class="base" id="base"></div>';
+    for (let j = 0; j < L; j++) {
+      const front = j === 0 ? 'cover' : seq[j - 1];
+      const back = j === L - 1 ? 'end' : seq[j];
+      html += `<div class="leaf" data-leaf="${j}">${pageFace(front, 'R', false)}${pageFace(back, 'L', true)}</div>`;
+    }
+    $('book').innerHTML = html;
+    render(false);
+  }
+  function layout() {
+    const t = $('table');
+    const W = t.clientWidth - 24, H = t.clientHeight - 30;
+    const pa = (meta ? meta.aspect : 3) / 2;
+    pageW = Math.max(60, Math.min(W / 2, H * pa)); pageH = pageW / pa;
+    const book = $('book');
+    book.style.width = pageW * 2 + 'px'; book.style.height = pageH + 'px';
+    const base = $('base'); if (base) Object.assign(base.style, { left: pageW + 'px', width: pageW + 'px', height: pageH + 'px' });
+    document.querySelectorAll('.leaf').forEach((l) => Object.assign(l.style, { left: pageW + 'px', width: pageW + 'px', height: pageH + 'px' }));
+    document.querySelectorAll('.cn').forEach((n) => { n.style.fontSize = pageH * 0.09 + 'px'; });
+    document.querySelectorAll('.cd').forEach((n) => { n.style.fontSize = pageH * 0.04 + 'px'; });
+    document.querySelectorAll('.paper,.filmpage').forEach((n) => { n.style.fontSize = Math.max(11, pageH * 0.06) + 'px'; });
+    const portrait = window.innerHeight > window.innerWidth && pageW < 200;
+    $('hint').textContent = portrait ? 'Turn your phone sideways for a bigger album' : 'Tap or swipe the book to turn the page';
+    render(false);
+  }
+  function render(animate = true) {
+    const L = seq.length + 1;
+    document.querySelectorAll('.leaf').forEach((leaf) => {
+      const j = +leaf.dataset.leaf;
+      const flipped = j < cur;
+      leaf.style.transition = animate ? '' : 'none';
+      leaf.style.zIndex = flipped ? j + 1 : L - j + 10;
+      leaf.style.transform = `rotateY(${flipped ? -180 : 0}deg)`;
+      leaf.style.boxShadow = flipped || j === cur ? '0 18px 30px rgba(0,0,0,.35)' : 'none';
+    });
+    const shift = cur === 0 ? -pageW / 2 : cur === L ? pageW / 2 : 0;
+    const book = $('book');
+    book.style.transition = animate ? '' : 'none';
+    book.style.transform = `translateX(${shift}px)`;
+    const s = seq[cur - 1];
+    $('label').textContent = cur === 0 ? 'Cover' : cur === L ? 'The end' : s && s.type === 'film' ? 'Our film' : `Spread ${s.i + 1} of ${meta.spreads}`;
+    $('bar').style.width = (cur / L) * 100 + '%';
+    $('prev').disabled = cur === 0; $('next').disabled = cur === L;
+    $('largeBtn').disabled = !(s && s.type === 'img');
+    if (animate) { flipSound(); setTimeout(() => document.querySelectorAll('.leaf').forEach((l) => { l.style.transition = ''; }), 30); }
+    else requestAnimationFrame(() => { document.querySelectorAll('.leaf').forEach((l) => { l.style.transition = ''; }); book.style.transition = ''; });
+  }
+  const go = (d) => { const L = seq.length + 1; const n = Math.max(0, Math.min(L, cur + d)); if (n !== cur) { cur = n; render(true); $('hint').classList.add('hidden'); } };
+  $('next').onclick = () => go(1); $('prev').onclick = () => go(-1);
+  $('book').addEventListener('click', (e) => {
+    if (swiped) return;
+    if (e.target.closest('[data-film]')) { openFilm(); return; }
+    const r = $('book').getBoundingClientRect();
+    go(e.clientX > r.left + r.width / 2 ? 1 : -1);
+  });
+  let sx = 0, sy = 0, swiped = false;
+  $('table').addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; swiped = false; }, { passive: true });
+  $('table').addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { swiped = true; go(dx < 0 ? 1 : -1); setTimeout(() => { swiped = false; }, 350); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!$('lb').classList.contains('hidden') || $('bookScreen').classList.contains('hidden')) return;
+    if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1);
+  });
+  window.addEventListener('resize', () => { if (meta) layout(); });
+
+  // page-turn sound made with WebAudio (no file to download)
+  let actx = null;
+  function flipSound() {
+    if (!sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const len = actx.sampleRate * 0.32, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) { const t = i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.2) * (0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, t * 3))); }
+      const src = actx.createBufferSource(); src.buffer = buf;
+      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.6;
+      const g = actx.createGain(); g.gain.value = 0.32;
+      src.connect(f).connect(g).connect(actx.destination); src.start();
+    } catch (_) {}
+  }
+  const setSoundIcon = () => { $('soundBtn').innerHTML = sound
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 010 6M19 6a8 8 0 010 12"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>'; };
+  setSoundIcon();
+  $('soundBtn').onclick = () => { sound = !sound; localStorage.setItem('endora:sound', sound ? 'on' : 'off'); setSoundIcon(); };
+
+  // film
+  function openFilm() { $('filmLb').classList.remove('hidden'); $('filmVideo').play().catch(() => {}); }
+  $('filmBtn').onclick = openFilm;
+  $('filmClose').onclick = () => { $('filmVideo').pause(); $('filmLb').classList.add('hidden'); };
+
+  // ---------- large view + comments ----------
+  $('largeBtn').onclick = () => { const s = seq[cur - 1]; if (s && s.type === 'img') openLarge(s.i); };
+  function openLarge(i) {
+    lbIndex = i; placing = false; pending = null;
+    $('lb').classList.remove('hidden');
+    $('lbImg').src = fileUrl(i);
+    $('lbTitle').textContent = 'Spread ' + (i + 1) + ' of ' + meta.spreads;
+    const sec = meta.sections[i]; $('lbSub').textContent = (sec ? sec + ' · ' : '') + (meta.perms.comment || meta.perms.swap ? 'Tap “Add a note”, then tap the photo' : '');
+    $('lbWm').classList.toggle('hidden', !meta.perms.watermark);
+    $('addNote').classList.toggle('hidden', !(meta.perms.comment || meta.perms.swap));
+    $('kindSeg').querySelector('[data-kind=swap]').classList.toggle('hidden', !meta.perms.swap);
+    $('kindSeg').querySelector('[data-kind=comment]').classList.toggle('hidden', !meta.perms.comment);
+    kind = meta.perms.comment ? 'comment' : 'swap'; paintKind();
+    const dl = $('dlBtn'); dl.classList.toggle('hidden', !meta.perms.download); dl.href = fileUrl(i) + '&dl=1';
+    $('composer').classList.add('hidden'); $('lbWrap').classList.remove('placing');
+    drawComments();
+  }
+  function drawComments() {
+    const wrap = $('lbWrap');
+    wrap.querySelectorAll('.dot').forEach((d) => d.remove());
+    const list = meta.comments.filter((c) => c.spread === lbIndex);
+    list.forEach((c, k) => {
+      if (c.x == null) return;
+      const d = document.createElement('span'); d.className = 'dot' + (c.kind === 'swap' ? ' swap' : '');
+      d.style.left = c.x * 100 + '%'; d.style.top = c.y * 100 + '%'; d.textContent = k + 1; wrap.appendChild(d);
+    });
+    if (pending) { const d = document.createElement('span'); d.className = 'dot'; d.style.left = pending.x * 100 + '%'; d.style.top = pending.y * 100 + '%'; d.textContent = '+'; wrap.appendChild(d); }
+    $('cmList').innerHTML = list.length ? list.map((c, k) => `<div class="cm"><div class="h"><b style="color:var(--text)">${k + 1}. ${esc(c.name || 'Guest')}</b>· ${new Date(c.created_at).toLocaleDateString()}${c.kind === 'swap' ? ' · <span style="color:#9CCBF0">swap photo</span>' : ''}</div>${esc(c.text)}</div>`).join('')
+      : '<div class="hint">No notes on this spread yet.</div>';
+  }
+  $('lbClose').onclick = () => { $('lb').classList.add('hidden'); };
+  $('lbPrev').onclick = () => { if (lbIndex > 0) openLarge(lbIndex - 1); };
+  $('lbNext').onclick = () => { if (lbIndex < meta.spreads - 1) openLarge(lbIndex + 1); };
+  $('addNote').onclick = () => { placing = true; $('lbWrap').classList.add('placing'); $('composer').classList.remove('hidden'); toast('Tap the photo you mean'); };
+  $('lbWrap').addEventListener('click', (e) => {
+    if (!placing) return;
+    const r = $('lbImg').getBoundingClientRect();
+    pending = { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
+    drawComments(); $('noteText').focus();
+  });
+  const paintKind = () => $('kindSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.kind === kind));
+  $('kindSeg').onclick = (e) => { const b = e.target.closest('[data-kind]'); if (b) { kind = b.dataset.kind; paintKind(); } };
+  $('cancelNote').onclick = () => { placing = false; pending = null; $('composer').classList.add('hidden'); $('lbWrap').classList.remove('placing'); $('noteText').value = ''; drawComments(); };
+  $('sendNote').onclick = async () => {
+    const text = $('noteText').value.trim();
+    if (!text) { toast('Write a note first'); return; }
+    const name = await askName(); if (!name) return;
+    $('sendNote').disabled = true;
+    try {
+      const r = await api('/comments', { method: 'POST', body: JSON.stringify({ spread: lbIndex, x: pending ? pending.x : null, y: pending ? pending.y : null, kind, text, name }) });
+      meta.comments.push({ id: r.id, spread: lbIndex, x: pending ? pending.x : null, y: pending ? pending.y : null, kind, text, name, created_at: r.createdAt });
+      $('noteText').value = ''; pending = null; placing = false; $('composer').classList.add('hidden'); $('lbWrap').classList.remove('placing');
+      drawComments(); toast('Sent to your photographer');
+    } catch (e) { toast(e.message); }
+    $('sendNote').disabled = false;
+  };
+  document.addEventListener('contextmenu', (e) => { if (meta && !meta.perms.download && e.target.closest('.face,#lbImg')) e.preventDefault(); });
+
+  // ---------- name + approve ----------
+  function sheet(html) {
+    const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div class="box">${html}</div>`;
+    $('modalRoot').appendChild(m); m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
+    return m;
+  }
+  function askName() {
+    const saved = localStorage.getItem('endora:name');
+    if (saved) return Promise.resolve(saved);
+    return new Promise((resolve) => {
+      const m = sheet(`<h1 style="font-size:26px">What is your name?</h1><input class="txt" id="nm" placeholder="Your name" style="height:48px"><button class="btn gold" id="nmok">Continue</button>`);
+      const inp = m.querySelector('#nm'); inp.focus();
+      const done = () => { const v = inp.value.trim(); if (!v) return; localStorage.setItem('endora:name', v); m.remove(); resolve(v); };
+      m.querySelector('#nmok').onclick = done; inp.onkeydown = (e) => { if (e.key === 'Enter') done(); };
+      m.addEventListener('click', (e) => { if (e.target === m) resolve(null); });
+    });
+  }
+  function updateApproved() {
+    const b = $('approvedBanner');
+    if (meta.approvedAt) { b.textContent = `Approved by ${meta.approvedBy || 'you'} on ${new Date(meta.approvedAt).toLocaleDateString()}. Thank you!`; b.classList.remove('hidden'); $('approveBtn').classList.add('hidden'); }
+  }
+  $('approveBtn').onclick = async () => {
+    const name = await askName(); if (!name) return;
+    const notes = meta.comments.length;
+    const m = sheet(`<h1 style="font-size:26px">Approve the album?</h1>
+      <div style="color:var(--muted)">This tells your photographer the design is ready to print${notes ? `, once your ${notes} note${notes > 1 ? 's are' : ' is'} done` : ''}.</div>
+      <button class="btn gold" id="apok">Yes, approve for printing</button><button class="btn" id="apno">Not yet</button>`);
+    m.querySelector('#apno').onclick = () => m.remove();
+    m.querySelector('#apok').onclick = async () => {
+      try {
+        const r = await api('/approve', { method: 'POST', body: JSON.stringify({ name }) });
+        meta.approvedAt = r.approvedAt; meta.approvedBy = name;
+        m.querySelector('.box').innerHTML = `<div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12l5 5 9-10"/></svg></div><h1 style="font-size:26px;text-align:center">Album approved</h1><div style="color:var(--muted);text-align:center">Your photographer has been told. Thank you!</div><button class="btn gold" id="apdone">Done</button>`;
+        m.querySelector('#apdone').onclick = () => m.remove();
+        updateApproved();
+      } catch (e) { toast(e.message); }
+    };
+  };
+
+  // ---------- boot ----------
+  if (token) start().catch(() => show('gate')); else { show('gate'); boxes[0].focus(); }
+})();
+</script>
+</body>
+</html>

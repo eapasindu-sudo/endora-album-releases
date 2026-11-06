@@ -1,0 +1,74 @@
+{
+  "name": "endora-album",
+  "productName": "Endora Album",
+  "version": "1.0.0",
+  "description": "Professional wedding album design software for Sri Lankan photographers",
+  "main": "main/main.js",
+  "author": "Endora",
+  "license": "UNLICENSED",
+  "private": true,
+  "endora": {
+    "macSigned": false
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.mjs",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --x64 --arm64 --publish never",
+    "dist:win": "electron-builder --win --x64 --publish never",
+    "release:mac": "electron-builder --mac --x64 --arm64 --publish always",
+    "release:win": "electron-builder --win --x64 --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "lk.endora.album",
+    "productName": "Endora Album",
+    "files": [
+      "main/**",
+      "renderer/**",
+      "cloudflare/src/**",
+      "cloudflare/schema.sql",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/sharp/**",
+      "node_modules/@img/**"
+    ],
+    "npmRebuild": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "eapasindu-sudo",
+        "repo": "endora-album-releases",
+        "releaseType": "release"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.photography",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "Endora-Album-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Endora-Album-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# Only for developing the Worker on your own computer (npx wrangler dev).
+# Photographers never use this: the Endora Album app sets up Cloudflare by itself
+# (Settings → Connect Cloudflare), uploading src/worker.js + src/viewer.html.
+name = "endora-album"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "endora-album"
+database_id = "local-dev"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "endora-albums"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
