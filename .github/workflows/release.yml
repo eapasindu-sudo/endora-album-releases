@@ -11,6 +11,12 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Which installers to build'
+        type: choice
+        options: [all, mac, windows]
+        default: all
 
 permissions:
   contents: write
@@ -40,7 +46,7 @@ jobs:
         run: npm install
 
       - name: Image engine for both Mac chips
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && inputs.platform != 'windows'
         run: |
           OD=$(node -p "JSON.stringify(require('sharp/package.json').optionalDependencies)")
           V1=$(node -p "($OD)['@img/sharp-darwin-x64']")
@@ -48,11 +54,11 @@ jobs:
           npm install --no-save --force "@img/sharp-darwin-x64@$V1" "@img/sharp-libvips-darwin-x64@$V2" "@img/sharp-darwin-arm64@$V1" "@img/sharp-libvips-darwin-arm64@$V2"
 
       - name: Build + publish Windows
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && inputs.platform != 'mac'
         run: npm run release:win
 
       - name: Build + publish Mac
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && inputs.platform != 'windows'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run release:mac
