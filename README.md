@@ -17,7 +17,8 @@ endora-album/
 
 1. **Endora Album install කරන්න.** Windows නම් `.exe`, Mac නම් `.dmg`.
    - Windows එකේ "Windows protected your PC" කියලා ආවොත් **More info → Run anyway** ඔබන්න.
-   - Mac එකේ app එක **right-click → Open** කරන්න.
+   - Mac එකේ: `.dmg` එක open කරලා app එක Applications එකට drag කරන්න. පළවෙනි පාර open කරද්දී "cannot be verified" කියලා ආවොත්: **System Settings → Privacy & Security** එකට ගිහින්, පහළට scroll කරලා **Open Anyway** ඔබන්න.
+   - M1/M2/M3/M4 Mac එකක් නම් `arm64.dmg` එක ගන්න. Intel Mac එකක් නම් `x64.dmg` එක ගන්න.
 2. App එකේ **Settings → Connect Cloudflare** ඔබන්න. (පළවෙනි වතාවට **Send to client** එබුවොත් මේ window එකම open වෙනවා.)
 3. Steps 3ක් තියෙනවා. Button එකක් ඔබාගෙන යන්න:
    1. **Open Cloudflare**: free account එකක් හදන්න. කලින් account එකක් තියෙනවා නම් මේක skip කරන්න.
