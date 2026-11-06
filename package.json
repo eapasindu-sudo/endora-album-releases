@@ -57,7 +57,8 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "Endora-Album-${version}-${arch}.${ext}"
+      "artifactName": "Endora-Album-${version}-${arch}.${ext}",
+      "identity": "-"
     },
     "win": {
       "target": [
