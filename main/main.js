@@ -12,11 +12,14 @@ try { sharp = require('sharp'); } catch (e) { console.error('sharp not available
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff']);
 const cfSetup = require('./cloudflare-setup');
+const { readLayers } = require('./psd');
 const VIDEO_EXT = new Set(['.mp4', '.mov', '.m4v', '.webm']);
 const THUMB_SIZE = 640;
 
 const dataDir = () => app.getPath('userData');
 const projectsDir = () => path.join(dataDir(), 'projects');
+const wordArtDir = () => path.join(dataDir(), 'wordart');
+const assetsDir = () => path.join(__dirname, '..', 'renderer', 'assets');
 const projectDir = (id) => path.join(projectsDir(), safeId(id));
 const settingsFile = () => path.join(dataDir(), 'settings.json');
 
@@ -26,8 +29,8 @@ function allow(p) { if (p) allowed.add(path.resolve(p)); }
 function isAllowed(p) {
   const r = path.resolve(p);
   if (allowed.has(r)) return true;
-  const root = path.resolve(projectsDir()) + path.sep;
-  return r.startsWith(root);
+  const roots = [projectsDir(), wordArtDir()].map((d) => path.resolve(d) + path.sep);
+  return roots.some((root) => r.startsWith(root));
 }
 
 function safeId(id) {
@@ -70,8 +73,15 @@ app.whenReady().then(async () => {
   await fsp.mkdir(projectsDir(), { recursive: true });
   protocol.handle('endora', async (request) => {
     const u = new URL(request.url);
-    const p = decodeURIComponent(u.pathname.replace(/^\//, ''));
-    if (u.host !== 'file' || !isAllowed(p)) return new Response('Forbidden', { status: 403 });
+    let p;
+    if (u.host === 'app') {
+      // files shipped with the app (word art pack); never outside renderer/assets
+      p = path.resolve(assetsDir(), decodeURIComponent(u.pathname.replace(/^\//, '')));
+      if (!p.startsWith(path.resolve(assetsDir()) + path.sep)) return new Response('Forbidden', { status: 403 });
+    } else {
+      p = decodeURIComponent(u.pathname.replace(/^\//, ''));
+      if (u.host !== 'file' || !isAllowed(p)) return new Response('Forbidden', { status: 403 });
+    }
     const res = await net.fetch(pathToFileURL(p).toString(), { headers: request.headers });
     // CORS header so the renderer can read pixels (sharpness / face analysis) without tainting canvases
     const headers = new Headers(res.headers);
@@ -138,7 +148,11 @@ ipcMain.handle('update:download', async () => {
 async function readSettings() {
   try { return JSON.parse(await fsp.readFile(settingsFile(), 'utf8')); } catch { return {}; }
 }
-ipcMain.handle('settings:get', readSettings);
+ipcMain.handle('settings:get', async () => {
+  const s = await readSettings();
+  (s.userWordArt || []).forEach((w) => allow(w.path));
+  return s;
+});
 ipcMain.handle('settings:set', async (_e, patch) => {
   const next = { ...(await readSettings()), ...patch };
   await fsp.writeFile(settingsFile(), JSON.stringify(next, null, 2));
@@ -281,6 +295,73 @@ ipcMain.handle('photos:crop', async (_e, file, rect, outW, outH) => {
     .jpeg({ quality: 96, chromaSubsampling: '4:4:4' })
     .toBuffer();
   return buf;
+});
+
+// ---------- word art import (PSD layers / PNG) ----------
+function inkInfo(rgba, w, h) {
+  const counts = new Map(); let total = 0;
+  const step = Math.max(1, Math.floor((w * h) / 40000));
+  for (let i = 0; i < w * h; i += step) {
+    if (rgba[i * 4 + 3] < 150) continue;
+    const key = ((rgba[i * 4] >> 5) << 6) | ((rgba[i * 4 + 1] >> 5) << 3) | (rgba[i * 4 + 2] >> 5);
+    counts.set(key, (counts.get(key) || 0) + 1); total++;
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (!top) return { color: '#000000', mono: true };
+  const k = top[0], c = (v) => Math.min(255, (v << 5) + 16).toString(16).padStart(2, '0');
+  return { color: '#' + c(k >> 6) + c((k >> 3) & 7) + c(k & 7), mono: top[1] / total > 0.7 };
+}
+
+async function saveArt(rgba, w, h, name) {
+  await fsp.mkdir(wordArtDir(), { recursive: true });
+  let img = sharp(rgba, { raw: { width: w, height: h, channels: 4 } });
+  try { img = sharp(await img.png().toBuffer()).trim({ threshold: 1 }); } catch (_) { /* fully used */ }
+  const { data, info } = await img.resize(1400, 1400, { fit: 'inside', withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  // skip layers that are almost empty
+  let ink = 0; for (let i = 3; i < data.length; i += 4) if (data[i] > 40) ink++;
+  if (ink < 60) return null;
+  const id = 'u' + crypto.randomBytes(6).toString('hex');
+  const file = path.join(wordArtDir(), id + '.png');
+  await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png({ compressionLevel: 9 }).toFile(file);
+  allow(file);
+  return { id, path: file, name: (name || 'Word art').replace(/\s+/g, ' ').trim().slice(0, 60), w: info.width, h: info.height, ...inkInfo(data, info.width, info.height) };
+}
+
+ipcMain.handle('wordart:import', async () => {
+  if (!sharp) throw new Error('Image engine (sharp) is missing.');
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Add word art from Photoshop files or PNGs', properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Photoshop or PNG', extensions: ['psd', 'psb', 'png'] }]
+  });
+  if (res.canceled) return { items: [], skipped: [] };
+  const items = [], skipped = [];
+  for (const f of res.filePaths) {
+    try {
+      if (/\.png$/i.test(f)) {
+        const { data, info } = await sharp(f).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        const it = await saveArt(data, info.width, info.height, path.basename(f, path.extname(f)));
+        if (it) items.push(it);
+        continue;
+      }
+      const psd = readLayers(await fsp.readFile(f));
+      for (const l of psd.layers) {
+        const full = l.width >= psd.width * 0.95 && l.height >= psd.height * 0.95;
+        if (/^(background|layer 0)$/i.test(l.name) || (!l.hasAlpha && full)) continue;
+        if (l.width < 12 || l.height < 12) continue;
+        // a layer with no transparent pixels is a photo or a box, not word art
+        let clear = 0; for (let i = 3; i < l.rgba.length; i += 4 * 7) if (l.rgba[i] < 20) clear++;
+        if (clear < (l.rgba.length / 28) * 0.05) { skipped.push(l.name); continue; }
+        const it = await saveArt(l.rgba, l.width, l.height, /^layer \d+/i.test(l.name) ? path.basename(f, path.extname(f)) : l.name);
+        if (it) items.push(it);
+      }
+    } catch (err) { skipped.push(path.basename(f) + ': ' + err.message); }
+  }
+  return { items, skipped };
+});
+
+ipcMain.handle('wordart:remove', async (_e, file) => {
+  if (file && path.resolve(file).startsWith(path.resolve(wordArtDir()) + path.sep)) await fsp.rm(file, { force: true });
+  return true;
 });
 
 // ---------- video ----------

@@ -1,7 +1,7 @@
 {
   "name": "endora-album",
   "productName": "Endora Album",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Professional wedding album design software for Sri Lankan photographers",
   "main": "main/main.js",
   "author": "Endora",

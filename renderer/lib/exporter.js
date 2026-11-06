@@ -1,6 +1,7 @@
 // Renders spreads at print resolution (with bleed) or web size, from the original photos.
 import { sizeInfo } from './layout.js';
 import { FONTS } from './textpacks.js';
+import { drawArt } from './wordart.js';
 
 const api = () => window.api;
 
@@ -71,6 +72,11 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/jpeg' }));
     ctx.drawImage(bmp, x, y, w, h);
     bmp.close();
+  }
+
+  for (const a of spread.arts || []) {
+    const w = a.w * trimW;
+    await drawArt(ctx, a, bleed + a.x * trimW, bleed + a.y * trimH, w, w * a.ar);
   }
 
   for (const t of spread.texts || []) {

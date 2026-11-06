@@ -4,6 +4,7 @@ import { $, esc, fmtNum, ICON, toast } from '../lib/dom.js';
 import { spreadHTML, textStyle } from '../lib/render-spread.js';
 import { sizeInfo, applyTemplate, bestTemplate, makeSpread, focalFor, lighten, uid, rng, TEMPLATES, layoutIdeasFor, MAX_PER_SPREAD } from '../lib/layout.js';
 import { TEXT_PACKS, FONTS } from '../lib/textpacks.js';
+import { packItems, userItems, artUrl, ART_COLORS, artInfo } from '../lib/wordart.js';
 import { autoBuildModal, printCheckModal, shareModal, sizeModal } from './modals.js';
 import { sizeLabel } from './home.js';
 
@@ -122,7 +123,7 @@ function renderStage(opts = {}) {
     const s = p.spreads[i];
     const sel = i === state.sel.spread;
     html += `<div class="spread-wrap" id="sw-${i}">
-      ${spreadHTML(s, p, byId, { height: H, index: i, interactive: true, selected: sel && !designer, selCell: sel ? state.sel.cell : null, selText: sel ? state.sel.text : null, guides: designer && state.guides, showDpi: designer, editCell: designer && sel && state.sel.text == null ? state.sel.cell : null })}
+      ${spreadHTML(s, p, byId, { height: H, index: i, interactive: true, selected: sel && !designer, selCell: sel ? state.sel.cell : null, selText: sel ? state.sel.text : null, selArt: sel ? state.sel.art : null, guides: designer && state.guides, showDpi: designer, editCell: designer && sel && state.sel.text == null && state.sel.art == null ? state.sel.cell : null })}
       <div class="spread-label"><b>${String(i + 1).padStart(2, '0')}</b>pages ${i * 2 + 1}–${i * 2 + 2}${s.section ? ' · ' + esc(s.section) : ''}</div>
     </div>`;
   }
@@ -154,7 +155,21 @@ function renderFloatbar() {
   const s = curSpread();
   if (!s) return;
   let target = null, html = '';
-  if (state.sel.text != null) {
+  if (state.sel.art != null && s.arts && s.arts[state.sel.art]) {
+    target = st.querySelector(`[data-spread="${state.sel.spread}"] [data-art="${state.sel.art}"]`);
+    const a = s.arts[state.sel.art];
+    const info = artInfo(a.src);
+    html = `
+      <span class="small muted" style="padding:0 4px">Size</span>
+      <input type="range" data-fb="artsize" min="0.04" max="1" step="0.005" value="${a.w}" aria-label="Word art size">
+      ${ART_COLORS.map((c) => `<button class="sw ${a.color === c ? 'on' : ''}" data-fb="artcolor" data-c="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}
+      <input type="color" data-fb="artpick" value="${esc(a.color || (info && info.color) || '#000000')}" aria-label="Any colour">
+      <button class="btn ghost" data-fb="artorig" style="height:30px;font-size:12px;${a.color ? '' : 'color:var(--gold)'}">Original</button>
+      <span class="small muted" style="padding:0 4px">Opacity</span>
+      <input type="range" data-fb="artop" min="0.1" max="1" step="0.05" value="${a.opacity == null ? 1 : a.opacity}" aria-label="Opacity" style="width:70px">
+      <button class="icon-btn" data-fb="artcenter" aria-label="Centre on page">${ICON.grid}</button>
+      <button class="icon-btn" data-fb="artdel" aria-label="Delete word art">${ICON.trash}</button>`;
+  } else if (state.sel.text != null) {
     target = st.querySelector(`[data-spread="${state.sel.spread}"] [data-text="${state.sel.text}"]`);
     const t = s.texts[state.sel.text];
     html = `
@@ -212,8 +227,10 @@ function wireStage() {
     const si = +sp.dataset.spread;
     const cell = e.target.closest('[data-cell]');
     const txt = e.target.closest('[data-text]');
+    const artEl = e.target.closest('[data-art]');
     const changed = si !== state.sel.spread;
-    state.sel = { spread: si, cell: cell ? +cell.dataset.cell : null, text: txt ? +txt.dataset.text : null };
+    state.sel = artEl ? { spread: si, cell: null, text: null, art: +artEl.dataset.art }
+      : { spread: si, cell: cell ? +cell.dataset.cell : null, text: txt ? +txt.dataset.text : null, art: null };
     refresh(changed ? ['stage', 'panel', 'strip'] : ['stage']);
   });
   st.addEventListener('change', (e) => {
@@ -250,6 +267,23 @@ function wireStage() {
     const c = e.target.closest('[data-cell]');
     const rect = sp.getBoundingClientRect();
     const s = curSpread();
+    const artEl = e.target.closest('[data-art]');
+    if (artEl && +artEl.dataset.art === state.sel.art) {
+      e.preventDefault();
+      const a = s.arts[state.sel.art];
+      const sx = e.clientX, sy = e.clientY, ox = a.x, oy = a.y;
+      let moved = false;
+      const mv = (ev) => {
+        if (!moved) { snapshot(); moved = true; }
+        a.x = Math.max(-a.w * 0.5, Math.min(1 - a.w * 0.5, ox + (ev.clientX - sx) / rect.width));
+        a.y = Math.max(-0.2, Math.min(0.95, oy + (ev.clientY - sy) / rect.height));
+        Object.assign(artEl.style, { left: a.x * rect.width + 'px', top: a.y * rect.height + 'px' });
+        const fb = st.querySelector('.floatbar'); if (fb) fb.style.visibility = 'hidden';
+      };
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (moved) { saveSoon(); refresh(['stage', 'strip']); } };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+      return;
+    }
     if (t && +t.dataset.text === state.sel.text && t.contentEditable !== 'true') {
       e.preventDefault();
       const tx = s.texts[state.sel.text];
@@ -391,6 +425,17 @@ function onFloatClick(e) {
   if (!b) return;
   const s = curSpread();
   const a = b.dataset.fb;
+  if (state.sel.art != null && s.arts && s.arts[state.sel.art]) {
+    const art = s.arts[state.sel.art];
+    if (a === 'artdel') { mutate(() => { s.arts.splice(state.sel.art, 1); state.sel.art = null; }, ['stage', 'strip']); return; }
+    if (a === 'artcolor') mutate(() => { art.color = b.dataset.c; }, ['stage', 'strip']);
+    if (a === 'artorig') mutate(() => { art.color = null; }, ['stage', 'strip']);
+    if (a === 'artcenter') {
+      const A = sizeInfo(P().size).aspect;
+      mutate(() => { const h = art.w * A * art.ar; const right = art.x + art.w / 2 > 0.5; art.x = (right ? 0.75 : 0.25) - art.w / 2; art.y = 0.5 - h / 2; }, ['stage', 'strip']);
+    }
+    return;
+  }
   if (state.sel.text != null) {
     const t = s.texts[state.sel.text];
     if (a === 'deltext') { mutate(() => { s.texts.splice(state.sel.text, 1); state.sel.text = null; }, ['stage', 'strip']); return; }
@@ -416,6 +461,25 @@ function onFloatInput(e) {
   if (!floatSnap) { snapshot(); floatSnap = true; setTimeout(() => { floatSnap = false; }, 800); }
   const a = el.dataset.fb;
   const st = $('#r-stage');
+  if (state.sel.art != null && s.arts && s.arts[state.sel.art]) {
+    const art = s.arts[state.sel.art];
+    const node = st.querySelector(`[data-spread="${state.sel.spread}"] [data-art="${state.sel.art}"]`);
+    const sp = node && node.closest('.spread');
+    if (a === 'artsize') {
+      const cx = art.x + art.w / 2, cyPx = art.y * (sp ? sp.offsetHeight : 1) + art.w * (sp ? sp.offsetWidth : 1) * art.ar / 2;
+      art.w = +el.value; art.x = cx - art.w / 2;
+      if (sp) art.y = (cyPx - art.w * sp.offsetWidth * art.ar / 2) / sp.offsetHeight;
+      if (node && sp) Object.assign(node.style, { left: art.x * sp.offsetWidth + 'px', top: art.y * sp.offsetHeight + 'px', width: art.w * sp.offsetWidth + 'px', height: art.w * sp.offsetWidth * art.ar + 'px' });
+    }
+    if (a === 'artop') { art.opacity = +el.value; if (node) node.style.opacity = art.opacity; }
+    if (a === 'artpick') {
+      art.color = el.value;
+      const url = artUrl(art.src);
+      if (node) node.innerHTML = `<div class="art-mask" style="background:${art.color};-webkit-mask-image:url('${url}');mask-image:url('${url}')"></div>`;
+    }
+    saveSoon();
+    return;
+  }
   if (a === 'zoom') {
     const c = s.cells[state.sel.cell]; c.zoom = +el.value;
     const img = st.querySelector(`[data-spread="${state.sel.spread}"] [data-cell="${state.sel.cell}"] img`);
@@ -540,8 +604,12 @@ function renderPanel() {
       body += `<p class="small muted" style="margin-top:10px">To make one: in Designer, select a photo and drag its corners or the move grip, then press "Save this spread as my template".${others.length ? ` You also have ${others.length} template${others.length > 1 ? 's' : ''} for other photo counts.` : ''}</p>`;
     }
   } else if (tab === 'text') {
-    head = `<button class="btn" data-pn="addtext">${ICON.text}Add text box</button><span class="small muted">Double-click text on the spread to type. Sinhala works with your system fonts.</span>`;
-    body = TEXT_PACKS.map((g) => `<div class="sec-title">${esc(g.group)}</div>` + g.items.map((it, k) =>
+    head = `<div class="row"><button class="btn" data-pn="addtext">${ICON.text}Add text box</button><button class="btn" data-pn="importart">${ICON.import}Import PSD / PNG</button></div><span class="small muted">Click word art to add it. Select it on the spread to change its colour.</span>`;
+    const mine = userItems(state.settings);
+    const artTile = (it, del) => `<button class="art-tile" data-art-add="${esc(it.src)}" title="${esc(it.name)}"><img src="${esc(artUrl(it.src))}" alt="${esc(it.name)}" loading="lazy">${del ? `<span class="x" data-art-del="${esc(it.id)}" role="button" aria-label="Remove">${ICON.close}</span>` : ''}</button>`;
+    body = (mine.length ? `<div class="sec-title">My word art (${mine.length})</div><div class="art-grid">${mine.map((it) => artTile(it, true)).join('')}</div>` : '')
+      + `<div class="sec-title">Word art pack (${packItems().length})</div><div class="art-grid">${packItems().map((it) => artTile(it)).join('')}</div>`
+      + TEXT_PACKS.map((g) => `<div class="sec-title">${esc(g.group)}</div>` + g.items.map((it, k) =>
       `<button class="text-item" data-tp="${esc(g.group)}|${k}"><span style="font-family:${FONTS[it.font]};font-size:${it.t.length > 30 ? 14 : 18}px">${esc(it.t)}</span>${it.note ? `<span class="small muted">${esc(it.note)}</span>` : ''}</button>`).join('')).join('');
   } else {
     const pal = [...new Set(photos.map((ph) => ph.avgColor).filter(Boolean))].slice(0, 6);
@@ -580,6 +648,17 @@ function darken(hex, amt) {
 function wirePanel() {
   const panel = $('#r-panel');
   panel.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-art-del]');
+    if (del) {
+      e.stopPropagation();
+      if (!confirm('Remove this word art from My word art? Spreads that use it will show an empty box.')) return;
+      const list = state.settings.userWordArt || [];
+      const it = list.find((x) => x.id === del.dataset.artDel);
+      api.settings.set({ userWordArt: list.filter((x) => x.id !== del.dataset.artDel) }).then((x) => { state.settings = x; if (it) api.wordart.remove(it.path); refresh(['panel']); });
+      return;
+    }
+    const addArtBtn = e.target.closest('[data-art-add]');
+    if (addArtBtn) { addArt(addArtBtn.dataset.artAdd); return; }
     const t = e.target.closest('[data-tab],[data-pn],[data-layout],[data-tp],[data-bg],[data-sub],[data-deltpl]');
     if (!t) return;
     const p = P(); const si = state.sel.spread; const s = p.spreads[si];
@@ -608,6 +687,7 @@ function wirePanel() {
     if (a === 'ideas') { state.layoutPage++; refresh(['panel']); }
     if (a === 'addtext') addText('Your text', 'serif');
     if (a === 'savetpl') saveAsTemplate(s);
+    if (a === 'importart') importArt();
     if (a === 'bgall') { const c = s.bg; mutate(() => p.spreads.forEach((x) => { x.bg = c; }), ['stage', 'strip']); toast('Background used on all spreads'); }
     if (a === 'lock') mutate(() => { s.locked = !s.locked; }, ['stage', 'panel']);
     if (a === 'delete') { if (confirm('Delete this spread? Its photos go back to the browser.')) mutate(() => { p.spreads.splice(si, 1); }); }
@@ -624,6 +704,31 @@ function wirePanel() {
   panel.addEventListener('change', (e) => {
     if (e.target.dataset.pn === 'bgpick') { snapshot(); saveSoon(); refresh(['strip', 'panel']); }
   });
+}
+
+function addArt(src) {
+  const s = curSpread();
+  const info = artInfo(src);
+  if (!s || !info) return;
+  const A = sizeInfo(P().size).aspect;
+  const ar = info.h / info.w;
+  let w = 0.3;
+  if (w * A * ar > 0.7) w = 0.7 / (A * ar);           // keep tall art inside the page
+  mutate(() => {
+    s.arts = s.arts || [];
+    s.arts.push({ id: uid(), src, x: 0.75 - w / 2, y: 0.5 - (w * A * ar) / 2, w, ar, color: null, opacity: 1 });
+    state.sel = { spread: state.sel.spread, cell: null, text: null, art: s.arts.length - 1 };
+  }, ['stage', 'strip']);
+  if (state.mode !== 'designer') toast('Word art added. Select it to change the colour or size.');
+}
+
+async function importArt() {
+  let res;
+  try { res = await api.wordart.import(); } catch (err) { toast('Could not read the file: ' + err.message, true); return; }
+  if (!res.items.length) { if (res.skipped.length) toast('No word art layers found in that file.', true); return; }
+  state.settings = await api.settings.set({ userWordArt: [...res.items, ...(state.settings.userWordArt || [])] });
+  refresh(['panel']);
+  toast(`${res.items.length} word art layer${res.items.length > 1 ? 's' : ''} added to My word art${res.skipped.length ? ` · ${res.skipped.length} photo/background layer${res.skipped.length > 1 ? 's' : ''} skipped` : ''}.`);
 }
 
 async function saveAsTemplate(s) {

@@ -50,5 +50,7 @@ contextBridge.exposeInMainWorld('api', {
       return () => ipcRenderer.removeListener('update:status', h);
     }
   },
-  fileUrl: (p) => 'endora://file/' + encodeURIComponent(p)
+  wordart: { import: inv('wordart:import'), remove: inv('wordart:remove') },
+  fileUrl: (p) => 'endora://file/' + encodeURIComponent(p),
+  assetUrl: (rel) => 'endora://app/' + rel.split('/').map(encodeURIComponent).join('/')
 });

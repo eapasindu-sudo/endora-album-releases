@@ -81,6 +81,8 @@ npm run dist:win   # Windows installer එක dist/ folder එකට (Windows PC
 - **Auto Build**: styles 4ක්, Spreads/Pages + Suggest, Smart/Range, Use every photo, template reuse, Sinhala/English titles
 - **AI layouts**: spread එකේ photos වල හැඩය (portrait/landscape) බලලා crop නොවෙන විදිහට layouts auto හැදෙනවා. ගාණක් නැහැ, "Show new ideas" ඔබන හැම පාරම අලුත් ඒවා එනවා. Spread එකකට photos 40ක් වෙනකන් දාන්න පුළුවන්.
 - **My templates**: Designer එකේ photo frame එකක corners අදිනකොට size එක වෙනස් වෙනවා, මැද ✥ grip එක අදිනකොට frame එක move වෙනවා. Frames අනිත් frames, margins සහ centre fold එකට snap වෙනවා. **Save this spread as my template** එබුවාම template එක save වෙනවා. ඒක හැම album එකකම සහ Auto Build එකේදීත් පාවිච්චි කරන්න පුළුවන්.
+- **Word art pack (PSD වලින්)**: Text tab එකේ word art 90ක් තියෙනවා (Our Wedding, Thank You, Homecoming, quotes...). Click කළාම spread එකට එකතු වෙනවා. Select කරලා **colour එක වෙනස් කරන්න** (colours 10ක් හෝ ඕනෑම colour එකක්), **Original** එකෙන් කලින් colours වලටම හරවන්න, size, opacity වෙනස් කරන්න. Export එකෙත් ඒ colour එකම එනවා.
+- **Import PSD / PNG**: ඔයාගේම PSD files වල text layers app එකට ගන්න පුළුවන්. Background සහ photo layers තනියම අයින් වෙනවා. ඒවා **My word art** එකට එකතු වෙනවා.
 - **Album | Designer**: spreads ඔක්කොම එක පේළියට, Text packs (Sinhala/Tamil/English), backgrounds, drag & drop, crop/zoom, undo/redo
 - **Print check / Export**: guides, print proof, mockup, DPI warnings, JPG/TIFF 300 DPI with bleed
 - **Send to client**: Cloudflare link එක + PIN, video, cover, comments, approve, WhatsApp/Email/QR

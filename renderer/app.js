@@ -5,6 +5,7 @@ import { groupEvents, uid, STANDARD_SIZES } from './lib/layout.js';
 import { renderHome } from './views/home.js';
 import { renderWorkspace, refresh } from './views/workspace.js';
 import { renderUpdateBanner } from './views/modals.js';
+import { loadPack, setArtSettings } from './lib/wordart.js';
 
 export const state = {
   view: 'home',
@@ -93,6 +94,7 @@ export function clampSel() {
   const s = state.project && state.project.spreads[state.sel.spread];
   if (!s || state.sel.cell >= s.cells.length) state.sel.cell = null;
   if (!s || state.sel.text >= (s.texts || []).length) state.sel.text = null;
+  if (!s || state.sel.art >= (s.arts || []).length) state.sel.art = null;
 }
 
 // ---------- navigation ----------
@@ -184,6 +186,8 @@ export function recull() {
 // ---------- boot ----------
 async function boot() {
   state.settings = await api.settings.get();
+  setArtSettings(() => state.settings);
+  await loadPack();
   state.version = await api.updates.version().catch(() => '');
   state.cloud = await api.cloud.status().catch(() => ({ connected: false }));
   api.updates.onStatus((u) => { state.update = u; renderUpdateBanner(); });

@@ -2,6 +2,7 @@
 import { esc } from './dom.js';
 import { sizeInfo, cellDpi } from './layout.js';
 import { FONTS } from './textpacks.js';
+import { artUrl } from './wordart.js';
 
 export function photoUrl(p) {
   return p ? window.api.fileUrl(p.thumb) : '';
@@ -30,6 +31,16 @@ export function spreadHTML(spread, project, byId, opts = {}) {
       if (dpi < 200) out += `<span class="lowres">${dpi} DPI</span>`;
     }
     out += '</div>';
+  });
+  (spread.arts || []).forEach((a, ai) => {
+    const url = artUrl(a.src);
+    const wpx = a.w * W, hpx = wpx * a.ar;
+    const sel = opts.selArt === ai ? ' sel' : '';
+    const aa = opts.interactive ? ` data-art="${ai}"` : '';
+    const inner = !url ? '' : a.color
+      ? `<div class="art-mask" style="background:${esc(a.color)};-webkit-mask-image:url('${esc(url)}');mask-image:url('${esc(url)}')"></div>`
+      : `<img src="${esc(url)}" alt="" draggable="false">`;
+    out += `<div class="art${sel}"${aa} style="left:${(a.x * W).toFixed(1)}px;top:${(a.y * H).toFixed(1)}px;width:${wpx.toFixed(1)}px;height:${hpx.toFixed(1)}px;opacity:${a.opacity == null ? 1 : a.opacity}">${inner}</div>`;
   });
   (spread.texts || []).forEach((t, ti) => {
     const sel = opts.selText === ti ? ' sel' : '';

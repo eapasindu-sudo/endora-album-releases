@@ -1,0 +1,812 @@
+[
+ {
+  "id": "wa001",
+  "file": "wa001.png",
+  "name": "Word art",
+  "w": 556,
+  "h": 95,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa002",
+  "file": "wa002.png",
+  "name": "The die is cast, come weal, com",
+  "w": 1400,
+  "h": 733,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa003",
+  "file": "wa003.png",
+  "name": "A wedding is a door to happines",
+  "w": 1400,
+  "h": 597,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa004",
+  "file": "wa004.png",
+  "name": "This won't be a \"Feast\" without",
+  "w": 1253,
+  "h": 142,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa005",
+  "file": "wa005.png",
+  "name": "To know you is to love you",
+  "w": 36,
+  "h": 739,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa006",
+  "file": "wa006.png",
+  "name": "From this day on, Our love will",
+  "w": 1400,
+  "h": 563,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa007",
+  "file": "wa007.png",
+  "name": "Beauty Day",
+  "w": 380,
+  "h": 73,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa008",
+  "file": "wa008.png",
+  "name": "FEELING",
+  "w": 260,
+  "h": 44,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa009",
+  "file": "wa009.png",
+  "name": "Happy Moments....",
+  "w": 476,
+  "h": 56,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa010",
+  "file": "wa010.png",
+  "name": "you are..... My You are my he",
+  "w": 638,
+  "h": 286,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa011",
+  "file": "wa011.png",
+  "name": "Word art",
+  "w": 413,
+  "h": 203,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa012",
+  "file": "wa012.png",
+  "name": "Word art",
+  "w": 552,
+  "h": 800,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa013",
+  "file": "wa013.png",
+  "name": "Have u ever tride Really reachi",
+  "w": 782,
+  "h": 649,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa014",
+  "file": "wa014.png",
+  "name": "For This Day On Our Love Will G",
+  "w": 606,
+  "h": 887,
+  "color": "#540C0C",
+  "mono": true
+ },
+ {
+  "id": "wa015",
+  "file": "wa015.png",
+  "name": "From this day forward, You shal",
+  "w": 1400,
+  "h": 264,
+  "color": "#0C0C0C",
+  "mono": false
+ },
+ {
+  "id": "wa016",
+  "file": "wa016.png",
+  "name": "Some thing special........ for",
+  "w": 1400,
+  "h": 369,
+  "color": "#FC0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa017",
+  "file": "wa017.png",
+  "name": "You have added so much to my li",
+  "w": 1400,
+  "h": 372,
+  "color": "#843C0C",
+  "mono": false
+ },
+ {
+  "id": "wa018",
+  "file": "wa018.png",
+  "name": "Only You I'll be good to you &",
+  "w": 789,
+  "h": 121,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa019",
+  "file": "wa019.png",
+  "name": "Word art",
+  "w": 811,
+  "h": 1400,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa020",
+  "file": "wa020.png",
+  "name": "Thank You",
+  "w": 403,
+  "h": 71,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa021",
+  "file": "wa021.png",
+  "name": "Thank You",
+  "w": 382,
+  "h": 59,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa022",
+  "file": "wa022.png",
+  "name": "Thank You",
+  "w": 307,
+  "h": 60,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa023",
+  "file": "wa023.png",
+  "name": "Thank You",
+  "w": 402,
+  "h": 82,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa024",
+  "file": "wa024.png",
+  "name": "Thank You",
+  "w": 535,
+  "h": 64,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa025",
+  "file": "wa025.png",
+  "name": "Word art",
+  "w": 749,
+  "h": 896,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa026",
+  "file": "wa026.png",
+  "name": "Word art",
+  "w": 753,
+  "h": 900,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa027",
+  "file": "wa027.png",
+  "name": "Our Homecoming",
+  "w": 607,
+  "h": 168,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa028",
+  "file": "wa028.png",
+  "name": "Our Homecoming",
+  "w": 472,
+  "h": 120,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa029",
+  "file": "wa029.png",
+  "name": "Our Homecoming",
+  "w": 712,
+  "h": 107,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa030",
+  "file": "wa030.png",
+  "name": "Our Homecoming",
+  "w": 517,
+  "h": 169,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa031",
+  "file": "wa031.png",
+  "name": "Our Homecoming",
+  "w": 427,
+  "h": 124,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa032",
+  "file": "wa032.png",
+  "name": "Is + Da",
+  "w": 127,
+  "h": 30,
+  "color": "#FC0C0C",
+  "mono": false
+ },
+ {
+  "id": "wa033",
+  "file": "wa033.png",
+  "name": "Is ss Da",
+  "w": 137,
+  "h": 29,
+  "color": "#FCFCFC",
+  "mono": false
+ },
+ {
+  "id": "wa034",
+  "file": "wa034.png",
+  "name": "Is ll Da",
+  "w": 149,
+  "h": 29,
+  "color": "#FCFCFC",
+  "mono": false
+ },
+ {
+  "id": "wa035",
+  "file": "wa035.png",
+  "name": "Is & Da",
+  "w": 136,
+  "h": 31,
+  "color": "#FCFCFC",
+  "mono": false
+ },
+ {
+  "id": "wa036",
+  "file": "wa036.png",
+  "name": "&",
+  "w": 90,
+  "h": 86,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa037",
+  "file": "wa037.png",
+  "name": "Our W edding",
+  "w": 677,
+  "h": 306,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa038",
+  "file": "wa038.png",
+  "name": "Thank You",
+  "w": 500,
+  "h": 137,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa039",
+  "file": "wa039.png",
+  "name": "We sincerely thank you for be",
+  "w": 552,
+  "h": 159,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa040",
+  "file": "wa040.png",
+  "name": "Thank You for sharing our sp",
+  "w": 853,
+  "h": 127,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa041",
+  "file": "wa041.png",
+  "name": "THANK YOU from the bottom of ou",
+  "w": 558,
+  "h": 116,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa042",
+  "file": "wa042.png",
+  "name": "Our Wedding",
+  "w": 434,
+  "h": 118,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa043",
+  "file": "wa043.png",
+  "name": "Our Wedding",
+  "w": 594,
+  "h": 250,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa044",
+  "file": "wa044.png",
+  "name": "Thank You",
+  "w": 520,
+  "h": 176,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa045",
+  "file": "wa045.png",
+  "name": "Our Wedding",
+  "w": 555,
+  "h": 125,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa046",
+  "file": "wa046.png",
+  "name": "Our Wedding",
+  "w": 252,
+  "h": 119,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa047",
+  "file": "wa047.png",
+  "name": "Our Wedding",
+  "w": 426,
+  "h": 116,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa048",
+  "file": "wa048.png",
+  "name": "Our Wedding",
+  "w": 412,
+  "h": 147,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa049",
+  "file": "wa049.png",
+  "name": "Our Wedding",
+  "w": 572,
+  "h": 124,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa050",
+  "file": "wa050.png",
+  "name": "Thank You",
+  "w": 479,
+  "h": 139,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa051",
+  "file": "wa051.png",
+  "name": "Our Homecoming",
+  "w": 602,
+  "h": 113,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa052",
+  "file": "wa052.png",
+  "name": "Our Homecoming",
+  "w": 694,
+  "h": 120,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa053",
+  "file": "wa053.png",
+  "name": "Our Wedding",
+  "w": 508,
+  "h": 125,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa054",
+  "file": "wa054.png",
+  "name": "Photography By - - 077",
+  "w": 312,
+  "h": 26,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa055",
+  "file": "wa055.png",
+  "name": "Pix By - - 077",
+  "w": 205,
+  "h": 26,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa056",
+  "file": "wa056.png",
+  "name": "o u r W e d d i n g",
+  "w": 53,
+  "h": 850,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa057",
+  "file": "wa057.png",
+  "name": "19th June 2014",
+  "w": 207,
+  "h": 29,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa058",
+  "file": "wa058.png",
+  "name": "My Sweet beautiful angel . sen",
+  "w": 777,
+  "h": 1400,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa059",
+  "file": "wa059.png",
+  "name": "\"Two lives and two hearts Join",
+  "w": 830,
+  "h": 339,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa060",
+  "file": "wa060.png",
+  "name": "Marriage is life living hearts",
+  "w": 1050,
+  "h": 461,
+  "color": "#B4FCCC",
+  "mono": true
+ },
+ {
+  "id": "wa061",
+  "file": "wa061.png",
+  "name": "From this day forward Let it b",
+  "w": 817,
+  "h": 801,
+  "color": "#B4B4CC",
+  "mono": true
+ },
+ {
+  "id": "wa062",
+  "file": "wa062.png",
+  "name": "Word art",
+  "w": 648,
+  "h": 557,
+  "color": "#0C0C0C",
+  "mono": false
+ },
+ {
+  "id": "wa063",
+  "file": "wa063.png",
+  "name": "Every time I Say I LOVE YOU...",
+  "w": 882,
+  "h": 727,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa064",
+  "file": "wa064.png",
+  "name": "\" I'll Lean on you and you l",
+  "w": 912,
+  "h": 417,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa065",
+  "file": "wa065.png",
+  "name": "\" A friend is someone who kno",
+  "w": 910,
+  "h": 741,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa066",
+  "file": "wa066.png",
+  "name": "\" Hold a true friend with both",
+  "w": 816,
+  "h": 273,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa067",
+  "file": "wa067.png",
+  "name": "\" Don't walk in front of me, I",
+  "w": 1330,
+  "h": 606,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa068",
+  "file": "wa068.png",
+  "name": "True Love A love that's timele",
+  "w": 485,
+  "h": 1400,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa069",
+  "file": "wa069.png",
+  "name": "\"Love bears all things, believ",
+  "w": 1297,
+  "h": 666,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa070",
+  "file": "wa070.png",
+  "name": "I Know thatI'm as lucky as a w",
+  "w": 1230,
+  "h": 810,
+  "color": "#FCB43C",
+  "mono": true
+ },
+ {
+  "id": "wa071",
+  "file": "wa071.png",
+  "name": "I love you without how or whe",
+  "w": 501,
+  "h": 1203,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa072",
+  "file": "wa072.png",
+  "name": "We together with our parents a",
+  "w": 1065,
+  "h": 333,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa073",
+  "file": "wa073.png",
+  "name": "my love",
+  "w": 488,
+  "h": 216,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa074",
+  "file": "wa074.png",
+  "name": "We together with our parents a",
+  "w": 947,
+  "h": 296,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa075",
+  "file": "wa075.png",
+  "name": "Marriage is life living hearts",
+  "w": 883,
+  "h": 271,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa076",
+  "file": "wa076.png",
+  "name": "Marriage is life living hearts",
+  "w": 746,
+  "h": 312,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa077",
+  "file": "wa077.png",
+  "name": "\"Everyone needs To have some",
+  "w": 881,
+  "h": 478,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa078",
+  "file": "wa078.png",
+  "name": "\"Two lives and two hearts Join",
+  "w": 964,
+  "h": 539,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa079",
+  "file": "wa079.png",
+  "name": "From this day forwards.... let",
+  "w": 996,
+  "h": 262,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa080",
+  "file": "wa080.png",
+  "name": "You have gone through your pre",
+  "w": 930,
+  "h": 641,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa081",
+  "file": "wa081.png",
+  "name": "Word art",
+  "w": 943,
+  "h": 114,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa082",
+  "file": "wa082.png",
+  "name": "Word art",
+  "w": 446,
+  "h": 1193,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa083",
+  "file": "wa083.png",
+  "name": "Word art",
+  "w": 783,
+  "h": 630,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa084",
+  "file": "wa084.png",
+  "name": "Word art",
+  "w": 798,
+  "h": 837,
+  "color": "#FCFCFC",
+  "mono": true
+ },
+ {
+  "id": "wa085",
+  "file": "wa085.png",
+  "name": "Word art",
+  "w": 998,
+  "h": 601,
+  "color": "#0C0C0C",
+  "mono": false
+ },
+ {
+  "id": "wa086",
+  "file": "wa086.png",
+  "name": "Word art",
+  "w": 990,
+  "h": 359,
+  "color": "#0C54FC",
+  "mono": false
+ },
+ {
+  "id": "wa087",
+  "file": "wa087.png",
+  "name": "Word art",
+  "w": 482,
+  "h": 1400,
+  "color": "#0C0C0C",
+  "mono": false
+ },
+ {
+  "id": "wa088",
+  "file": "wa088.png",
+  "name": "Word art",
+  "w": 799,
+  "h": 459,
+  "color": "#FCFCFC",
+  "mono": false
+ },
+ {
+  "id": "wa089",
+  "file": "wa089.png",
+  "name": "Word art",
+  "w": 1400,
+  "h": 346,
+  "color": "#0C0C0C",
+  "mono": true
+ },
+ {
+  "id": "wa090",
+  "file": "wa090.png",
+  "name": "Word art",
+  "w": 889,
+  "h": 1310,
+  "color": "#0C0C0C",
+  "mono": true
+ }
+]
