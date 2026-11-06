@@ -2,7 +2,7 @@
 import { state, mutate, undo, redo, goHome, importPaths, usedCounts, saveSoon, snapshot, clampSel, recull } from '../app.js';
 import { $, esc, fmtNum, ICON, toast } from '../lib/dom.js';
 import { spreadHTML, textStyle } from '../lib/render-spread.js';
-import { sizeInfo, templatesFor, templateCells, assignPhotos, applyTemplate, bestTemplate, makeSpread, focalFor, lighten, uid, rng, TEMPLATES } from '../lib/layout.js';
+import { sizeInfo, applyTemplate, bestTemplate, makeSpread, focalFor, lighten, uid, rng, TEMPLATES, layoutIdeasFor, MAX_PER_SPREAD } from '../lib/layout.js';
 import { TEXT_PACKS, FONTS } from '../lib/textpacks.js';
 import { autoBuildModal, printCheckModal, shareModal, sizeModal } from './modals.js';
 import { sizeLabel } from './home.js';
@@ -107,7 +107,7 @@ function renderStage(opts = {}) {
     st.innerHTML = `<div class="drop-hint" style="pointer-events:auto">
       <div class="logo" style="width:56px;height:56px;font-size:26px">E</div>
       <h2 style="margin:0;font-family:var(--serif);font-size:28px;color:var(--text)">${p.photos.length ? 'Ready to design' : 'Add your photos'}</h2>
-      <span>${p.photos.length ? fmtNum(p.photos.length) + ' photos ready. Let Endora design the spreads, or drag photos up here.' : 'Drop a folder here, or use Import images below. Up to 2,000 photos.'}</span>
+      <span>${p.photos.length ? fmtNum(p.photos.length) + ' photos ready. Let Endora design the spreads, or drag photos up here.' : 'Drop a folder here, or use Import images below. Add as many photos as you like.'}</span>
       <div class="row">${p.photos.length ? `<button class="btn lg gold" data-stage="autobuild">${ICON.bolt}Auto Build</button>` : `<button class="btn lg gold" data-stage="import">${ICON.import}Import images</button>`}</div>
     </div>`;
     return;
@@ -122,7 +122,7 @@ function renderStage(opts = {}) {
     const s = p.spreads[i];
     const sel = i === state.sel.spread;
     html += `<div class="spread-wrap" id="sw-${i}">
-      ${spreadHTML(s, p, byId, { height: H, index: i, interactive: true, selected: sel && !designer, selCell: sel ? state.sel.cell : null, selText: sel ? state.sel.text : null, guides: designer && state.guides, showDpi: designer })}
+      ${spreadHTML(s, p, byId, { height: H, index: i, interactive: true, selected: sel && !designer, selCell: sel ? state.sel.cell : null, selText: sel ? state.sel.text : null, guides: designer && state.guides, showDpi: designer, editCell: designer && sel && state.sel.text == null ? state.sel.cell : null })}
       <div class="spread-label"><b>${String(i + 1).padStart(2, '0')}</b>pages ${i * 2 + 1}–${i * 2 + 2}${s.section ? ' · ' + esc(s.section) : ''}</div>
     </div>`;
   }
@@ -206,6 +206,7 @@ function wireStage() {
       return;
     }
     if (e.target.closest('.floatbar')) return onFloatClick(e);
+    if (e.target.closest('[data-h]')) return;
     const sp = e.target.closest('[data-spread]');
     if (!sp) { if (state.sel.cell != null || state.sel.text != null) { state.sel.cell = null; state.sel.text = null; refresh(['stage']); } return; }
     const si = +sp.dataset.spread;
@@ -243,6 +244,8 @@ function wireStage() {
     if (e.button !== 0) return;
     const sp = e.target.closest('[data-spread]');
     if (!sp || +sp.dataset.spread !== state.sel.spread) return;
+    const handle = e.target.closest('[data-h]');
+    if (handle) { e.preventDefault(); e.stopPropagation(); startFrameEdit(e, sp, handle.dataset.h); return; }
     const t = e.target.closest('[data-text]');
     const c = e.target.closest('[data-cell]');
     const rect = sp.getBoundingClientRect();
@@ -333,6 +336,56 @@ function wireStage() {
   });
 }
 
+// Resize / move a photo frame by hand. Edges snap to other frames, the margins and the centre fold.
+function startFrameEdit(e, sp, mode) {
+  const s = curSpread();
+  const ci = state.sel.cell;
+  const cell = s.cells[ci];
+  if (!cell) return;
+  const rect = sp.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  const start = { x: cell.x, y: cell.y, w: cell.w, h: cell.h };
+  const sx = e.clientX, sy = e.clientY;
+  const others = s.cells.filter((_, i) => i !== ci);
+  const xs = [0, 0.5, 1, 0.04 / sizeInfo(P().size).aspect, 1 - 0.04 / sizeInfo(P().size).aspect], ys = [0, 1, 0.04, 0.96];
+  others.forEach((o) => { xs.push(o.x, o.x + o.w); ys.push(o.y, o.y + o.h); });
+  const tolX = 7 / W, tolY = 7 / H, minW = 24 / W, minH = 24 / H;
+  const snap = (v, list, tol) => { let best = null; for (const t of list) if (Math.abs(t - v) < tol && (best == null || Math.abs(t - v) < Math.abs(best - v))) best = t; return best; };
+  const cellEl = sp.querySelector(`[data-cell="${ci}"]`);
+  const frameEl = sp.querySelector('.frame-edit');
+  let moved = false;
+  const lines = [];
+  const clearLines = () => { lines.forEach((l) => l.remove()); lines.length = 0; };
+  const line = (vertical, pos) => { const l = document.createElement('div'); l.className = 'snap-line'; Object.assign(l.style, vertical ? { left: pos * W + 'px', top: 0, width: '1px', height: H + 'px' } : { top: pos * H + 'px', left: 0, height: '1px', width: W + 'px' }); sp.appendChild(l); lines.push(l); };
+  const mv = (ev) => {
+    if (!moved) { snapshot(); moved = true; }
+    const dx = (ev.clientX - sx) / W, dy = (ev.clientY - sy) / H;
+    let { x, y, w, h } = start;
+    clearLines();
+    if (mode === 'move') {
+      x = Math.max(0, Math.min(1 - w, x + dx)); y = Math.max(0, Math.min(1 - h, y + dy));
+      const l = snap(x, xs, tolX), r = snap(x + w, xs, tolX), t = snap(y, ys, tolY), b = snap(y + h, ys, tolY);
+      if (l != null) { x = l; line(true, l); } else if (r != null) { x = r - w; line(true, r); }
+      if (t != null) { y = t; line(false, t); } else if (b != null) { y = b - h; line(false, b); }
+    } else {
+      if (mode.includes('w')) { let nx = Math.max(0, Math.min(start.x + start.w - minW, start.x + dx)); const sn = snap(nx, xs, tolX); if (sn != null && sn < start.x + start.w - minW) { nx = sn; line(true, sn); } w = start.x + start.w - nx; x = nx; }
+      if (mode.includes('e')) { let r = Math.min(1, Math.max(start.x + minW, start.x + start.w + dx)); const sn = snap(r, xs, tolX); if (sn != null && sn > start.x + minW) { r = sn; line(true, sn); } w = r - start.x; }
+      if (mode.includes('n')) { let ny = Math.max(0, Math.min(start.y + start.h - minH, start.y + dy)); const sn = snap(ny, ys, tolY); if (sn != null && sn < start.y + start.h - minH) { ny = sn; line(false, sn); } h = start.y + start.h - ny; y = ny; }
+      if (mode.includes('s')) { let b = Math.min(1, Math.max(start.y + minH, start.y + start.h + dy)); const sn = snap(b, ys, tolY); if (sn != null && sn > start.y + minH) { b = sn; line(false, sn); } h = b - start.y; }
+    }
+    Object.assign(cell, { x, y, w, h });
+    const css = { left: x * W + 'px', top: y * H + 'px', width: w * W + 'px', height: h * H + 'px' };
+    if (cellEl) Object.assign(cellEl.style, css);
+    if (frameEl) Object.assign(frameEl.style, css);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    clearLines();
+    if (moved) { s.layoutId = 'custom'; saveSoon(); refresh(['stage', 'strip', 'panel']); }
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+
 function onFloatClick(e) {
   const b = e.target.closest('[data-fb]');
   if (!b) return;
@@ -382,7 +435,7 @@ function onFloatInput(e) {
 // ================= spread operations =================
 function relayout(spread, photos, seed) {
   const p = P();
-  const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2, random: seed ? rng(seed) : null, avoid: [spread.layoutId] })
+  const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2, random: seed ? rng(seed) : null, avoid: [spread.layoutId], userTemplates: state.settings.userTemplates })
     || bestTemplate(photos, p.size, 'Classic', { allowFull: true });
   if (!pick) return spread;
   const ns = makeSpread(pick, { id: spread.id, bg: spread.bg, section: spread.section, texts: spread.texts });
@@ -398,7 +451,7 @@ export function addPhotosToSpread(si, ids) {
   const have = new Set(s.cells.map((c) => c.photoId));
   const add = ids.filter((id) => !have.has(id)).map((id) => state.byId.get(id));
   const photos = spreadPhotos(s).concat(add);
-  if (photos.length > 8) { toast('A spread can hold up to 8 photos. Make a new spread for the rest.', true); return; }
+  if (photos.length > MAX_PER_SPREAD) { toast(`A spread can hold up to ${MAX_PER_SPREAD} photos. Make a new spread for the rest.`, true); return; }
   if (!state.autoLayout) toast('Auto layout is off, so the layout was picked once for the new photo count.');
   mutate(() => { p.spreads[si] = relayout(s, photos); state.sel = { spread: si, cell: null, text: null }; });
 }
@@ -416,7 +469,7 @@ function removePhotoFromSpread(si, ci) {
 
 function newSpreadWith(ids, at) {
   const p = P();
-  const photos = ids.slice(0, 8).map((id) => state.byId.get(id)).filter(Boolean);
+  const photos = ids.slice(0, MAX_PER_SPREAD).map((id) => state.byId.get(id)).filter(Boolean);
   if (!photos.length) return;
   const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2 }) || bestTemplate(photos, p.size, 'Classic', { allowFull: true });
   mutate(() => {
@@ -438,7 +491,7 @@ function changeCount(delta) {
   const p = P(); const si = state.sel.spread; const s = p.spreads[si];
   const photos = spreadPhotos(s);
   if (delta > 0) {
-    if (photos.length >= 8) return toast('8 photos is the most for one spread.');
+    if (photos.length >= MAX_PER_SPREAD) return toast(`${MAX_PER_SPREAD} photos is the most for one spread.`);
     const near = photos.length ? photos[Math.floor(photos.length / 2)].takenAt : null;
     const add = nextUnused(1, near);
     if (!add.length) return toast('No unused photos left. Import more or drag one from the browser.');
@@ -464,27 +517,28 @@ function renderPanel() {
   }
   const photos = spreadPhotos(s);
   if (tab === 'layouts') {
-    head = `<div class="row" style="justify-content:space-between">
-        <span class="small muted">Click a layout to use it on this spread</span></div>
+    const sub = state.layoutSub || 'ideas';
+    const userT = state.settings.userTemplates || [];
+    head = `<div class="seg" style="display:grid;grid-template-columns:1fr 1fr"><button class="${sub === 'ideas' ? 'on' : ''}" data-sub="ideas">AI ideas</button><button class="${sub === 'mine' ? 'on' : ''}" data-sub="mine">My templates ${userT.length ? '(' + userT.length + ')' : ''}</button></div>
       <div class="row" style="justify-content:space-between">
         <span class="row small">Photos <span class="stepper"><button data-pn="minus" aria-label="One photo less">−</button><b>${photos.length}</b><button data-pn="plus" aria-label="One photo more">+</button></span></span>
-        <button class="btn ghost" data-pn="ideas" style="height:28px;font-size:12px">${ICON.shuffle}Show new ideas</button>
-      </div>`;
-    const aspect = sizeInfo(p.size).aspect;
-    let ranked = templatesFor(photos.length).map((t) => {
-      const cells = templateCells(t, p.size, p.build.style);
-      const { order, cost } = assignPhotos(cells, photos, aspect);
-      return { t, cells, order, cost };
-    }).sort((a, b) => a.cost - b.cost);
-    const per = 12;
-    const pages = Math.max(1, Math.ceil(ranked.length / per));
-    const pg = state.layoutPage % pages;
-    ranked = ranked.slice(pg * per, pg * per + per);
-    body = `<div class="layout-grid">${ranked.map((r) => {
+        ${sub === 'ideas' ? `<button class="btn ghost" data-pn="ideas" style="height:28px;font-size:12px">${ICON.shuffle}Show new ideas</button>` : ''}
+      </div>
+      <button class="btn" data-pn="savetpl" style="height:30px;font-size:12px">${ICON.plus}Save this spread as my template</button>`;
+    const { ideas, mine } = layoutIdeasFor(photos, p.size, p.build.style, state.layoutPage || 0, userT);
+    const tile = (r, del) => {
       const fake = { ...s, texts: [], cells: r.cells.map((c, i) => ({ ...c, photoId: r.order[i].id, ...focalFor(r.order[i]), zoom: 1 })) };
-      return `<button class="layout-tile ${r.t.id === s.layoutId ? 'on' : ''}" data-layout="${esc(r.t.id)}" title="${esc(r.t.name)}">${spreadHTML(fake, p, state.byId, { height: 42 })}</button>`;
-    }).join('')}</div>
-    <p class="small muted" style="margin-top:10px">Ideas ${pg + 1} of ${pages} · best fit first</p>`;
+      return `<div style="position:relative"><button class="layout-tile ${r.tpl.id === s.layoutId ? 'on' : ''}" data-layout="${esc(r.tpl.id)}" title="${esc(r.tpl.name || '')}">${spreadHTML(fake, p, state.byId, { height: 42 })}</button>
+        ${del ? `<button class="icon-btn" data-deltpl="${esc(r.tpl.id)}" aria-label="Delete template" style="position:absolute;right:-6px;top:-8px;width:22px;height:22px;background:var(--bg2);border:1px solid var(--line2);border-radius:11px">${ICON.close}</button>` : ''}</div>`;
+    };
+    if (sub === 'ideas') {
+      body = `<div class="layout-grid">${ideas.map((r) => tile(r)).join('')}</div>
+        <p class="small muted" style="margin-top:10px">Set ${(state.layoutPage || 0) + 1} · made for these ${photos.length} photos · best fit first</p>`;
+    } else {
+      const others = userT.filter((u) => u.count !== photos.length);
+      body = mine.length ? `<div class="layout-grid">${mine.map((r) => tile(r, true)).join('')}</div>` : `<p class="small muted">No saved templates for ${photos.length} photos yet.</p>`;
+      body += `<p class="small muted" style="margin-top:10px">To make one: in Designer, select a photo and drag its corners or the move grip, then press "Save this spread as my template".${others.length ? ` You also have ${others.length} template${others.length > 1 ? 's' : ''} for other photo counts.` : ''}</p>`;
+    }
   } else if (tab === 'text') {
     head = `<button class="btn" data-pn="addtext">${ICON.text}Add text box</button><span class="small muted">Double-click text on the spread to type. Sinhala works with your system fonts.</span>`;
     body = TEXT_PACKS.map((g) => `<div class="sec-title">${esc(g.group)}</div>` + g.items.map((it, k) =>
@@ -526,13 +580,19 @@ function darken(hex, amt) {
 function wirePanel() {
   const panel = $('#r-panel');
   panel.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-tab],[data-pn],[data-layout],[data-tp],[data-bg]');
+    const t = e.target.closest('[data-tab],[data-pn],[data-layout],[data-tp],[data-bg],[data-sub],[data-deltpl]');
     if (!t) return;
     const p = P(); const si = state.sel.spread; const s = p.spreads[si];
+    if (t.dataset.sub) { state.layoutSub = t.dataset.sub; refresh(['panel']); return; }
+    if (t.dataset.deltpl) {
+      if (!confirm('Delete this saved template? Spreads that use it keep their layout.')) return;
+      api.settings.set({ userTemplates: (state.settings.userTemplates || []).filter((u) => u.id !== t.dataset.deltpl) }).then((x) => { state.settings = x; refresh(['panel']); });
+      return;
+    }
     if (t.dataset.tab) { state.panelTab = t.dataset.tab; refresh(['panel']); return; }
     if (t.dataset.layout) {
       if (s.locked) return toast('This spread is locked. Unlock it to change the layout.');
-      mutate(() => { p.spreads[si] = applyTemplate(s, t.dataset.layout, state.byId, p.size, p.build.style); }, ['stage', 'panel', 'strip']);
+      mutate(() => { p.spreads[si] = applyTemplate(s, t.dataset.layout, state.byId, p.size, p.build.style, state.settings.userTemplates); }, ['stage', 'panel', 'strip']);
       return;
     }
     if (t.dataset.bg) { mutate(() => { s.bg = t.dataset.bg; }, ['stage', 'panel', 'strip']); return; }
@@ -547,6 +607,7 @@ function wirePanel() {
     if (a === 'minus') changeCount(-1);
     if (a === 'ideas') { state.layoutPage++; refresh(['panel']); }
     if (a === 'addtext') addText('Your text', 'serif');
+    if (a === 'savetpl') saveAsTemplate(s);
     if (a === 'bgall') { const c = s.bg; mutate(() => p.spreads.forEach((x) => { x.bg = c; }), ['stage', 'strip']); toast('Background used on all spreads'); }
     if (a === 'lock') mutate(() => { s.locked = !s.locked; }, ['stage', 'panel']);
     if (a === 'delete') { if (confirm('Delete this spread? Its photos go back to the browser.')) mutate(() => { p.spreads.splice(si, 1); }); }
@@ -563,6 +624,19 @@ function wirePanel() {
   panel.addEventListener('change', (e) => {
     if (e.target.dataset.pn === 'bgpick') { snapshot(); saveSoon(); refresh(['strip', 'panel']); }
   });
+}
+
+async function saveAsTemplate(s) {
+  const list = state.settings.userTemplates || [];
+  const cells = s.cells.map((c) => ({ x: +c.x.toFixed(5), y: +c.y.toFixed(5), w: +c.w.toFixed(5), h: +c.h.toFixed(5) }));
+  const sig = JSON.stringify(cells);
+  if (list.some((u) => JSON.stringify(u.cells) === sig)) { toast('This layout is already in My templates.'); return; }
+  const tpl = { id: 'u:' + uid(), name: `My layout ${list.length + 1} · ${cells.length} photos`, count: cells.length, cells, createdAt: Date.now() };
+  state.settings = await api.settings.set({ userTemplates: [tpl, ...list] });
+  s.layoutId = tpl.id; saveSoon();
+  state.layoutSub = 'mine';
+  refresh(['panel']);
+  toast('Saved to My templates. Auto Build can use it too.');
 }
 
 function addText(text, font, sub) {

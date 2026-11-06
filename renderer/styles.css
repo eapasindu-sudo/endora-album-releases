@@ -228,3 +228,12 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
 #update-root { position: fixed; left: 16px; bottom: 16px; z-index: 150; }
 .update-banner { display: flex; align-items: center; gap: 10px; background: var(--bg2); border: 1px solid var(--gold); border-radius: 12px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); font-size: 13px; max-width: 460px; }
 .update-banner svg { color: var(--gold); flex: 0 0 auto; }
+
+/* photo frame editing (Designer) */
+.frame-edit { position: absolute; z-index: 7; pointer-events: none; outline: 1.5px solid var(--gold); }
+.fh { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; background: #fff; border: 2px solid var(--gold); border-radius: 3px; pointer-events: auto; }
+.fh-nw { left: 0; top: 0; cursor: nwse-resize; } .fh-n { left: 50%; top: 0; cursor: ns-resize; } .fh-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.fh-e { left: 100%; top: 50%; cursor: ew-resize; } .fh-se { left: 100%; top: 100%; cursor: nwse-resize; } .fh-s { left: 50%; top: 100%; cursor: ns-resize; }
+.fh-sw { left: 0; top: 100%; cursor: nesw-resize; } .fh-w { left: 0; top: 50%; cursor: ew-resize; }
+.fh-move { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 15px; background: var(--gold); color: var(--on-gold); display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: move; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.snap-line { position: absolute; background: #3BA3FF; z-index: 8; pointer-events: none; }

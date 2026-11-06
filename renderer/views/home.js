@@ -32,7 +32,7 @@ export function renderHome(root) {
         <div class="empty">
           <span class="logo" style="width:54px;height:54px;font-size:26px">E</span>
           <h2 style="margin:0;font-family:var(--serif);font-size:28px">Create your first album</h2>
-          <span class="muted">Add up to 2,000 photos. Endora picks the best ones and designs the spreads for you.</span>
+          <span class="muted">Add as many photos as you like. Endora picks the best ones and designs the spreads for you.</span>
           <button class="btn lg gold" data-act="new">${ICON.plus}New album</button>
         </div>` : `
       <div class="cards">

@@ -76,9 +76,11 @@ npm run dist:win   # Windows installer එක dist/ folder එකට (Windows PC
 ## App එකේ තියෙන දේවල්
 - **Albums**: album list එක, status එකත් එක්ක (Designing → Client review → Approved → Printing)
 - **New album**: album size 12×36, 12×30, 10×30, 8×24 හෝ **Custom** (inch/cm/mm), bleed, DPI, presets
-- **Import**: photos 2,000ක් වෙනකන් දාන්න පුළුවන් (JPG/PNG/WebP/TIFF). Blur, duplicate, exposure, faces check කරලා, photo ගත්ත වෙලාව අනුව "parts of the day" වලට බෙදනවා.
+- **Import**: photos ඕනෑම ගාණක් දාන්න පුළුවන්, limit එකක් නැහැ (JPG/PNG/WebP/TIFF). Blur, duplicate, exposure, faces check කරලා, photo ගත්ත වෙලාව අනුව "parts of the day" වලට බෙදනවා.
 - **Auto Build**: styles 4ක්, Spreads/Pages + Suggest, Smart/Range, Use every photo, template reuse, Sinhala/English titles
-- **Album | Designer**: spreads ඔක්කොම එක පේළියට, layouts (spread එකේම photos වලින්), Text packs (Sinhala/Tamil/English), backgrounds, drag & drop, crop/zoom, undo/redo
+- **AI layouts**: spread එකේ photos වල හැඩය (portrait/landscape) බලලා crop නොවෙන විදිහට layouts auto හැදෙනවා. ගාණක් නැහැ, "Show new ideas" ඔබන හැම පාරම අලුත් ඒවා එනවා. Spread එකකට photos 40ක් වෙනකන් දාන්න පුළුවන්.
+- **My templates**: Designer එකේ photo frame එකක corners අදිනකොට size එක වෙනස් වෙනවා, මැද ✥ grip එක අදිනකොට frame එක move වෙනවා. Frames අනිත් frames, margins සහ centre fold එකට snap වෙනවා. **Save this spread as my template** එබුවාම template එක save වෙනවා. ඒක හැම album එකකම සහ Auto Build එකේදීත් පාවිච්චි කරන්න පුළුවන්.
+- **Album | Designer**: spreads ඔක්කොම එක පේළියට, Text packs (Sinhala/Tamil/English), backgrounds, drag & drop, crop/zoom, undo/redo
 - **Print check / Export**: guides, print proof, mockup, DPI warnings, JPG/TIFF 300 DPI with bleed
 - **Send to client**: Cloudflare link එක + PIN, video, cover, comments, approve, WhatsApp/Email/QR
 - **Settings**: studio name, Cloudflare connect/disconnect, check for updates, dark/light theme

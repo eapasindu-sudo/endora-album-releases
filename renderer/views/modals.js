@@ -2,7 +2,7 @@
 import { state, createProject, mutate, saveSoon, saveImmediately, recull, render, usedCounts } from '../app.js';
 import { refresh } from './workspace.js';
 import { esc, fmtNum, ICON, toast } from '../lib/dom.js';
-import { STANDARD_SIZES, TEMPLATES, sizeInfo, autoBuild, usablePhotos, suggestSpreads, printChecks, templateCells, assignPhotos, focalFor } from '../lib/layout.js';
+import { STANDARD_SIZES, sizeInfo, autoBuild, usablePhotos, suggestSpreads, printChecks, focalFor, pickForId, MAX_PER_SPREAD } from '../lib/layout.js';
 import { SECTION_NAMES, SECTION_TITLES_SI } from '../lib/textpacks.js';
 import { spreadHTML } from '../lib/render-spread.js';
 import { exportAlbum } from '../lib/exporter.js';
@@ -146,13 +146,11 @@ export function sizeModal() {
 }
 
 function refitSpread(s, proj) {
-  const tpl = TEMPLATES.find((t) => t.id === s.layoutId);
-  if (!tpl) return s;
-  const cells = templateCells(tpl, proj.size, proj.build.style);
+  // hand-made layouts keep their frames; generated and built-in layouts are rebuilt for the new shape
   const photos = s.cells.map((c) => state.byId.get(c.photoId)).filter(Boolean);
-  if (photos.length !== cells.length) return s;
-  const { order } = assignPhotos(cells, photos, sizeInfo(proj.size).aspect);
-  return { ...s, cells: cells.map((c, i) => ({ ...c, photoId: order[i].id, ...focalFor(order[i]), zoom: 1 })) };
+  const pick = pickForId(s.layoutId, photos, proj.size, proj.build.style, state.settings.userTemplates);
+  if (!pick) return s;
+  return { ...s, cells: pick.cells.map((c, i) => ({ ...c, photoId: pick.order[i].id, ...focalFor(pick.order[i]), zoom: 1 })) };
 }
 
 // ============ Connect Cloudflare (one time per PC) ============
@@ -302,11 +300,11 @@ export function autoBuildModal() {
     p.photos.forEach((x) => (x.flags || []).forEach((f) => { flagged[f]++; }));
     const leftOut = p.photos.filter((x) => x.excluded).length;
     const spreads = b.unit === 'pages' ? Math.ceil(b.spreads / 2) : b.spreads;
-    const per = b.useEvery ? `${Math.max(1, Math.floor(usable.length / Math.max(1, spreads - locked().length)))}–${Math.min(8, Math.ceil(usable.length / Math.max(1, spreads - locked().length)))}`
+    const per = b.useEvery ? `${Math.max(1, Math.floor(usable.length / Math.max(1, spreads - locked().length)))}–${Math.min(MAX_PER_SPREAD, Math.ceil(usable.length / Math.max(1, spreads - locked().length)))}`
       : b.perSpread === 'range' ? `${b.min} to ${b.max}` : { Classic: '3 to 6', Modern: '3 to 6', Magazine: '4 to 7', Minimal: '1 to 3' }[b.style];
     const busy = state.busy;
     m.el.querySelector('[data-ab]').innerHTML = `
-    ${head(`${ICON.bolt} Auto Build`, 'Endora reads every photo (time, faces, sharpness and the parts of the day) and then designs the album.')}
+    ${head(`${ICON.bolt} Auto Build`, 'Endora reads every photo (time, faces, sharpness and the parts of the day) and designs the album with AI layouts made for your photos.')}
     <div class="modal-body"><div class="two">
       <div>
         <div class="box" style="padding:10px 12px">
@@ -330,7 +328,7 @@ export function autoBuildModal() {
           <span class="small">Photos per spread</span>
           <div class="seg"><button class="${b.perSpread !== 'range' ? 'on' : ''}" data-per="smart">Smart</button><button class="${b.perSpread === 'range' ? 'on' : ''}" data-per="range">Range</button></div>
         </div>
-        ${b.perSpread === 'range' ? `<div class="row" style="margin-top:8px;justify-content:flex-end"><span class="small muted">from</span><input type="number" name="min" min="1" max="8" value="${b.min}" style="width:56px"><span class="small muted">to</span><input type="number" name="max" min="1" max="8" value="${b.max}" style="width:56px"></div>` : ''}
+        ${b.perSpread === 'range' ? `<div class="row" style="margin-top:8px;justify-content:flex-end"><span class="small muted">from</span><input type="number" name="min" min="1" max="${MAX_PER_SPREAD}" value="${b.min}" style="width:56px"><span class="small muted">to</span><input type="number" name="max" min="1" max="${MAX_PER_SPREAD}" value="${b.max}" style="width:56px"></div>` : ''}
         <label class="box gold check" style="margin-top:12px"><input type="checkbox" name="useEvery" ${b.useEvery ? 'checked' : ''}><span><b style="color:var(--gold)">Use every photo</b>: all ${fmtNum(usable.length)} kept photos go into these ${spreads} spreads.<br><span class="small muted">Off: Auto Build picks the best ones and leaves out blurry and repeat shots.</span></span></label>
         <div class="row" style="margin-top:12px;justify-content:space-between">
           <span class="small">Template reuse</span>
@@ -352,6 +350,7 @@ export function autoBuildModal() {
         ${b.opts.text ? `<div class="row small" style="padding-left:25px"><div class="seg"><button class="${b.titleLang !== 'en' ? 'on' : ''}" data-lang="si">සිංහල</button><button class="${b.titleLang === 'en' ? 'on' : ''}" data-lang="en">English</button></div></div>` : ''}
         <label class="check"><input type="checkbox" data-opt="color" ${b.opts.color ? 'checked' : ''}>Match background colour to the photos</label>
         <label class="check"><input type="checkbox" data-opt="starsOnly" ${b.opts.starsOnly ? 'checked' : ''}>Use only my hero ★ photos</label>
+        <label class="check"><input type="checkbox" data-opt="myTemplates" ${b.opts.myTemplates !== false ? 'checked' : ''}>Use My templates too <span class="muted">(${(state.settings.userTemplates || []).length} saved)</span></label>
         <div class="small muted" style="margin:4px 0 0 25px">Hero ★ photos are always preferred. Locked spreads stay as they are.</div>
         <div class="label-cap">Parts of the day</div>
         <div class="box" style="max-height:210px;overflow:auto">
@@ -399,8 +398,8 @@ export function autoBuildModal() {
     if (t.dataset.cull) { p.cull[t.dataset.cull] = t.checked; recull(); }
     if (t.dataset.opt) b.opts[t.dataset.opt] = t.checked;
     if (t.name === 'useEvery') b.useEvery = t.checked;
-    if (t.name === 'min') b.min = Math.max(1, Math.min(8, +t.value || 1));
-    if (t.name === 'max') b.max = Math.max(b.min, Math.min(8, +t.value || 1));
+    if (t.name === 'min') b.min = Math.max(1, Math.min(MAX_PER_SPREAD, +t.value || 1));
+    if (t.name === 'max') b.max = Math.max(b.min, Math.min(MAX_PER_SPREAD, +t.value || 1));
     if (t.name === 'countn') b.spreads = Math.max(1, Math.min(b.unit === 'pages' ? 160 : 80, Math.round(+t.value || 1)));
     if (t.dataset.part != null) { p.events[+t.dataset.part].name = t.value.trim() || 'Part ' + (+t.dataset.part + 1); }
     saveSoon(); draw();
@@ -430,7 +429,8 @@ function runBuild() {
     hero: b.opts.hero, text: b.opts.text, color: b.opts.color, starsOnly: b.opts.starsOnly,
     newSpreadPerPart: b.opts.newSpreadPerPart, useEvery: b.useEvery, reuse: b.reuse,
     range: b.perSpread === 'range' ? [b.min, b.max] : null,
-    events: p.events, titles, skip
+    events: p.events, titles, skip,
+    userTemplates: b.opts.myTemplates !== false ? (state.settings.userTemplates || []) : []
   });
   mutate(() => {
     const out = [...built];

@@ -117,3 +117,72 @@ test('stars only uses starred photos', () => {
   const spreads = autoBuild(photos, { spreads: 8, size, style: 'Classic', starsOnly: true, seed: 1 });
   spreads.flatMap((s) => s.cells).forEach((c) => assert.ok(+c.photoId.slice(1) < 30));
 });
+
+import { generateIdeas, cellsFromGenId, applyTemplate as applyT, layoutIdeasFor, userTemplatePick, MAX_PER_SPREAD } from '../renderer/lib/layout.js';
+
+const overlap = (a, b) => a.x < b.x + b.w - 1e-6 && b.x < a.x + a.w - 1e-6 && a.y < b.y + b.h - 1e-6 && b.y < a.y + a.h - 1e-6;
+
+test('AI ideas fit inside the spread, never overlap, and keep off the centre fold', () => {
+  for (const n of [1, 2, 3, 5, 8, 12, 20, 40]) {
+    const photos = fakePhotos(n);
+    for (const style of Object.keys(STYLES)) {
+      const ideas = generateIdeas(photos, size, style, { seed: 3, n: 6 });
+      assert.ok(ideas.length >= 1, `no ideas for ${n} ${style}`);
+      for (const idea of ideas) {
+        assert.equal(idea.cells.length, n);
+        idea.cells.forEach((c, i) => {
+          assert.ok(c.x >= -1e-9 && c.y >= -1e-9 && c.x + c.w <= 1 + 1e-9 && c.y + c.h <= 1 + 1e-9, 'outside ' + idea.tpl.id);
+          if (idea.tpl.id.includes('|')) assert.ok(c.x + c.w <= 0.5 + 1e-9 || c.x >= 0.5 - 1e-9, 'crosses fold ' + idea.tpl.id);
+          idea.cells.slice(i + 1).forEach((d) => assert.ok(!overlap(c, d), 'overlap ' + idea.tpl.id));
+        });
+      }
+    }
+  }
+});
+
+test('new seeds give new ideas (unlimited)', () => {
+  const photos = fakePhotos(6);
+  const ids = new Set();
+  for (let page = 0; page < 8; page++) layoutIdeasFor(photos, size, 'Classic', page, []).ideas.forEach((i) => ids.add(i.tpl.id));
+  assert.ok(ids.size > 80, 'only ' + ids.size + ' distinct ideas');
+});
+
+test('ideas fit photo shapes: best idea crops little', () => {
+  const photos = fakePhotos(4);
+  const best = generateIdeas(photos, size, 'Modern', { seed: 2, n: 1 })[0];
+  assert.ok(best.cost < 0.2, 'crop ' + best.cost);
+});
+
+test('g: ids rebuild for another album size', () => {
+  const photos = fakePhotos(5);
+  const id = generateIdeas(photos, size, 'Classic', { seed: 5, n: 1 })[0].tpl.id;
+  const cells = cellsFromGenId(id, photos, { h: 10, w: 30, unit: 'in' }, 'Classic');
+  assert.equal(cells.length, 5);
+  assert.equal(cellsFromGenId('g:0|1', fakePhotos(3), size, 'Classic'), null);
+});
+
+test('more than 8 photos per spread and huge imports', () => {
+  const photos = fakePhotos(6000);
+  const t0 = Date.now();
+  const spreads = autoBuild(photos, { spreads: 60, size, style: 'Magazine', range: [10, 16], hero: false, seed: 2 });
+  assert.equal(spreads.length, 60);
+  spreads.forEach((s) => assert.ok(s.cells.length >= 10 && s.cells.length <= 16, 'count ' + s.cells.length));
+  assert.ok(Date.now() - t0 < 8000, 'slow ' + (Date.now() - t0));
+  const all = autoBuild(fakePhotos(900), { spreads: 30, size, style: 'Classic', useEvery: true, seed: 1 });
+  assert.equal(new Set(all.flatMap((s) => s.cells.map((c) => c.photoId))).size, 900);
+  assert.ok(MAX_PER_SPREAD >= 30);
+});
+
+test('user templates are used and applied', () => {
+  const photos = fakePhotos(3);
+  const mine = { id: 'u:test', name: 'Mine', count: 3, cells: [{ x: 0.05, y: 0.1, w: 0.4, h: 0.8 }, { x: 0.55, y: 0.1, w: 0.18, h: 0.8 }, { x: 0.77, y: 0.1, w: 0.18, h: 0.8 }] };
+  const pick = userTemplatePick(mine, photos, size);
+  assert.equal(pick.cells.length, 3);
+  const spreads = autoBuild(fakePhotos(60), { spreads: 20, size, style: 'Classic', range: [3, 3], hero: false, seed: 4, userTemplates: [mine] });
+  assert.ok(spreads.some((s) => s.layoutId === 'u:test'));
+  const byId = new Map(photos.map((p) => [p.id, p]));
+  const s0 = { cells: photos.map((p) => ({ photoId: p.id })), texts: [] };
+  assert.equal(applyT(s0, 'u:test', byId, size, 'Classic', [mine]).layoutId, 'u:test');
+  const { ideas, mine: m } = layoutIdeasFor(photos, size, 'Classic', 1, [mine]);
+  assert.ok(ideas.length >= 4); assert.equal(m.length, 1);
+});

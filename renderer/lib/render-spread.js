@@ -37,6 +37,13 @@ export function spreadHTML(spread, project, byId, opts = {}) {
     out += `<div class="txt${sel}"${ta} style="${textStyle(t, W, H)}">${esc(t.text)}</div>`;
   });
   if (!opts.interactive || opts.fold !== false) out += '<div class="fold"></div>';
+  if (opts.editCell != null && spread.cells[opts.editCell]) {
+    const c = spread.cells[opts.editCell];
+    out += `<div class="frame-edit" data-frame="${opts.editCell}" style="left:${(c.x * W).toFixed(2)}px;top:${(c.y * H).toFixed(2)}px;width:${(c.w * W).toFixed(2)}px;height:${(c.h * H).toFixed(2)}px">
+      ${['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((h) => `<span class="fh fh-${h}" data-h="${h}"></span>`).join('')}
+      <span class="fh-move" data-h="move" title="Drag to move this photo frame" aria-label="Move frame"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></span>
+    </div>`;
+  }
   if (opts.guides) {
     const bleedFracX = info.bleedIn / (info.wIn + 2 * info.bleedIn);
     const safe = 0.04;

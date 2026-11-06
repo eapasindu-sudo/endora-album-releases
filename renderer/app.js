@@ -137,10 +137,7 @@ export async function importPaths(paths) {
   const known = new Set(p.photos.map((x) => x.path));
   const fresh = paths.filter((x) => !known.has(x));
   if (!fresh.length) { toast('Those photos are already in this album.'); return; }
-  const limit = 2000 - p.photos.length;
-  if (limit <= 0) { toast('This album already has 2,000 photos.', true); return; }
-  const list = fresh.slice(0, limit);
-  if (fresh.length > limit) toast(`Only the first ${limit} photos were added (2,000 per album).`);
+  const list = fresh;
 
   state.busy = { label: 'Importing photos', done: 0, total: list.length };
   refresh(['browser']);
