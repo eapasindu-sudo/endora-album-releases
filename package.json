@@ -58,7 +58,7 @@
         "zip"
       ],
       "artifactName": "Endora-Album-${version}-${arch}.${ext}",
-      "identity": "-"
+      "identity": null
     },
     "win": {
       "target": [
@@ -70,6 +70,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false
-    }
+    },
+    "afterPack": "scripts/adhoc-sign.cjs"
   }
 }
