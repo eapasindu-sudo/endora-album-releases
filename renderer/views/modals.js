@@ -206,9 +206,65 @@ export function connectCloudModal(after) {
 }
 
 // ============ Settings + updates ============
+const mb = (b) => (b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(2) + ' GB' : Math.max(0.1, b / 1048576).toFixed(1) + ' MB');
+
+// Forget a deleted cloud link in whichever local album used it.
+async function forgetCloudAlbum(albumId) {
+  if (state.project && state.project.cloud && state.project.cloud.albumId === albumId) { state.project.cloud = null; saveSoon(); }
+  for (const p of state.projects || []) {
+    if (p.cloud && p.cloud.albumId === albumId && (!state.project || state.project.id !== p.id)) {
+      try { const full = await api.projects.get(p.id); full.cloud = null; await api.projects.save(full); p.cloud = null; } catch (_) { /* album folder gone */ }
+    }
+  }
+}
+
+export async function deleteFromCloud(albumId, couple, asked) {
+  if (!asked && !confirm(`Delete "${couple || 'this album'}" from Cloudflare? The client link stops working and the space is freed. The album stays on this computer.`)) return false;
+  try { await api.cloud.request('DELETE', `/api/albums/${albumId}`); }
+  catch (err) { toast(err.message.replace(/^Error invoking remote method '[^']+': (\w*Error: )?/, ''), true); return false; }
+  await forgetCloudAlbum(albumId);
+  toast('Deleted from Cloudflare');
+  return true;
+}
+
 export function settingsModal() {
-  const m = openModal('<div data-st></div>', 'sm');
+  const m = openModal('<div data-st></div>', 'md');
+  let test = null, testing = false, storage = null, stErr = null, stLoading = false;
+  const loadStorage = async () => {
+    if (!(state.cloud && state.cloud.connected)) return;
+    stLoading = true; draw();
+    try { storage = await api.cloud.request('GET', '/api/storage'); stErr = null; }
+    catch (err) { stErr = err.message.replace(/^Error invoking remote method '[^']+': (\w*Error: )?/, ''); }
+    stLoading = false; draw();
+  };
+  const storageBox = () => {
+    if (!(state.cloud && state.cloud.connected)) return '';
+    if (stLoading && !storage) return '<div class="box small muted">Loading cloud storage…</div>';
+    if (stErr) return `<div class="box small" style="color:var(--warn)">Cloud storage: ${esc(stErr)}</div>`;
+    if (!storage) return '';
+    const used = storage.totalBytes, free = storage.freeBytes;
+    const pct = Math.min(100, (used / free) * 100);
+    return `<div class="box col" style="gap:10px">
+      <div class="row"><b class="grow">Cloud storage</b><span class="small">${mb(used)} of ${mb(free)} free</span></div>
+      <div class="progress" style="height:8px"><div style="width:${pct}%;background:${pct > 85 ? 'var(--warn)' : 'var(--gold)'}"></div></div>
+      <span class="small muted">Delete albums your clients have finished with. Films use the most space. Expired links are removed by themselves ${storage.cleanAfterDays} days after they end.${storage.otherAlbums ? ` ${storage.otherAlbums} album${storage.otherAlbums > 1 ? 's' : ''} from your other PCs also use this space.` : ''}</span>
+      <div class="col" style="gap:0;max-height:260px;overflow:auto">
+      ${storage.albums.length ? storage.albums.map((a) => `<div class="row" style="padding:8px 0;border-top:1px solid var(--line);gap:10px">
+          <div class="col grow" style="gap:2px"><b style="font-size:13px">${esc(a.couple || 'Album')}</b>
+            <span class="small muted">${mb(a.bytes)}${a.videoBytes ? ' · film ' + mb(a.videoBytes) : ''} · ${a.expiresAt ? (a.expiresAt < Date.now() ? 'expired ' : 'open until ') + new Date(a.expiresAt).toLocaleDateString('en-GB') : 'no end date'}${a.approvedAt ? ' · approved' : ''}</span></div>
+          ${a.videoBytes ? `<button class="btn ghost" data-delvid="${esc(a.id)}" style="height:30px;font-size:12px">Delete film</button>` : ''}
+          <button class="btn danger" data-delalb="${esc(a.id)}" data-name="${esc(a.couple)}" style="height:30px;font-size:12px">${ICON.trash}Delete</button>
+        </div>`).join('') : '<span class="small muted">No albums on Cloudflare from this PC.</span>'}
+      </div></div>`;
+  };
+  const testBox = () => {
+    if (!(state.cloud && state.cloud.connected)) return '';
+    return `<div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn" data-up="test" ${testing ? 'disabled' : ''}>${testing ? 'Testing…' : 'Test connection'}</button><button class="btn ghost" data-up="openurl">Open in browser</button></div>
+      ${test ? `<div class="col" style="gap:4px">${(test.steps || []).map((x) => `<div class="row small"><span class="dot ${x.ok ? 'ok' : 'warn'}" style="flex:0 0 20px;height:20px">${x.ok ? '✓' : '!'}</span><b>${esc(x.name)}</b><span class="muted">${esc(x.detail)}</span></div>`).join('')}
+        ${test.hint ? `<span class="small" style="color:var(--warn)">${esc(test.hint)}</span>` : ''}${test.message ? `<span class="small">${esc(test.message)}</span>` : ''}</div>` : ''}`;
+  };
   const draw = () => {
+    if (m.el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
     const u = state.update;
     const status = !u ? '' : u.state === 'checking' ? 'Checking…' : u.state === 'latest' ? 'You have the newest version.'
       : u.state === 'dev' ? 'Updates work in the installed app, not in development mode.'
@@ -220,7 +276,9 @@ export function settingsModal() {
         <div class="box col" style="gap:8px">
           <div class="row"><b class="grow">Client links (Cloudflare)</b>${state.cloud && state.cloud.connected ? '<button class="btn danger" data-up="disconnect">Disconnect</button>' : '<button class="btn gold" data-up="connect">Connect Cloudflare</button>'}</div>
           <span class="small muted">${state.cloud && state.cloud.connected ? 'Connected' + (state.cloud.accountName ? ' to ' + esc(state.cloud.accountName) : '') + ' · ' + esc(state.cloud.url) : 'Not connected yet. Needed for Send to client.'}</span>
+          ${testBox()}
         </div>
+        ${storageBox()}
         <div class="box col" style="gap:8px">
           <div class="row"><b class="grow">Endora Album ${esc(state.version || '')}</b>
             ${u && u.state === 'ready' ? '<button class="btn gold" data-up="install">Restart &amp; update</button>' : u && u.state === 'available' ? '<button class="btn gold" data-up="download">Download update</button>' : '<button class="btn" data-up="check">Check for updates</button>'}</div>
@@ -230,14 +288,24 @@ export function settingsModal() {
       <div class="modal-foot"><div class="grow"></div><button class="btn gold" data-x>Done</button></div>`;
   };
   draw();
+  loadStorage();
   const off = setInterval(draw, 1000);
   const close = () => { clearInterval(off); m.close(); };
   m.el.addEventListener('change', async (e) => {
     if (e.target.name === 'studio') { state.settings = await api.settings.set({ studio: e.target.value.trim() }); if (state.view === 'home') render(); }
   });
   m.el.addEventListener('click', async (e) => {
+    const dv = e.target.closest('[data-delvid]'), da = e.target.closest('[data-delalb]');
+    if (dv) {
+      if (!confirm('Delete only the film from Cloudflare? The album pages stay on the link.')) return;
+      try { await api.cloud.request('DELETE', `/api/albums/${dv.dataset.delvid}/video`); toast('Film deleted from Cloudflare'); } catch (err) { toast(err.message, true); }
+      loadStorage(); return;
+    }
+    if (da) { if (await deleteFromCloud(da.dataset.delalb, da.dataset.name)) loadStorage(); return; }
     const t = e.target.closest('[data-x],[data-up]');
     if (!t) return;
+    if (t.dataset.up === 'test') { testing = true; test = null; draw(); test = await api.cloud.test().catch((err) => ({ ok: false, message: err.message })); testing = false; draw(); return; }
+    if (t.dataset.up === 'openurl') { api.cloud.openUrl(); return; }
     if (t.dataset.x !== undefined) {
       const inp = m.el.querySelector('[name=studio]');
       if (inp && inp.value.trim() !== (state.settings.studio || '')) state.settings = await api.settings.set({ studio: inp.value.trim() });
@@ -577,7 +645,7 @@ export async function shareModal() {
             <b>Private client link</b>
             ${c ? `<div class="link-box"><input type="text" readonly value="${esc(c.url)}" aria-label="Client link"><button class="btn gold" data-act="copy">${ICON.copy}Copy</button></div>
               <div class="row small"><span>PIN: <b style="font-size:15px;letter-spacing:2px">${esc(c.pin)}</b></span><span class="muted">· ${c.active === false ? 'link turned off' : 'only people with the link + PIN can open it'}</span></div>
-              <div class="row" style="flex-wrap:wrap"><button class="btn" data-act="wa">WhatsApp</button><button class="btn" data-act="mail">Email</button><button class="btn" data-act="qr">QR code</button><button class="btn" data-act="toggle">${c.active === false ? 'Turn link on' : 'Turn link off'}</button></div>
+              <div class="row" style="flex-wrap:wrap"><button class="btn" data-act="wa">WhatsApp</button><button class="btn" data-act="mail">Email</button><button class="btn" data-act="qr">QR code</button><button class="btn" data-act="toggle">${c.active === false ? 'Turn link on' : 'Turn link off'}</button><button class="btn danger" data-act="delcloud">${ICON.trash}Delete from cloud</button></div>
               ${qr ? `<img class="qr" src="${qr}" alt="QR code for the client link">` : ''}
               <span class="small muted">Sent ${new Date(c.publishedAt).toLocaleString('en-GB')}${c.views ? ' · opened ' + c.views + ' times' : ''}${c.approvedAt ? ' · <b style="color:var(--ok)">approved by ' + esc(c.approvedBy || 'client') + '</b>' : ''}</span>`
               : '<span class="small muted">No link yet. Upload creates a private link with a random address and a 4-digit PIN.</span>'}
@@ -643,6 +711,7 @@ export async function shareModal() {
     if (a === 'mail') api.shell.open(`mailto:?subject=${encodeURIComponent('Your wedding album preview')}&body=${encodeURIComponent(`Hi ${p.couple},\n\nYour album is ready to view:\n${c.url}\nPIN: ${c.pin}\n\nYou can leave comments on any photo and approve it when you are happy.`)}`);
     if (a === 'qr') { qr = qr ? null : await api.qr(c.url); draw(); }
     if (a === 'sync') sync();
+    if (a === 'delcloud') { if (await deleteFromCloud(c.albumId, p.couple)) { feedback = null; qr = null; draw(); refresh(['top']); } return; }
     if (a === 'toggle') { try { await setLinkActive(p, c.active === false); saveSoon(); draw(); } catch (err) { toast(err.message, true); } }
     if (a === 'publish') {
       m.ov.dataset.locked = '1';

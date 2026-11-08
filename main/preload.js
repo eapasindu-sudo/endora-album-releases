@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   shell: { open: inv('shell:open') },
   qr: inv('qr:make'),
   cloud: {
-    status: inv('cloud:status'), setup: inv('cloud:setup'), disconnect: inv('cloud:disconnect'),
+    status: inv('cloud:status'), setup: inv('cloud:setup'), disconnect: inv('cloud:disconnect'), test: inv('cloud:test'), openUrl: inv('cloud:openUrl'),
     openTokenPage: inv('cloud:openTokenPage'), openSignup: inv('cloud:openSignup'), openR2: inv('cloud:openR2'),
     request: inv('cloud:request'), upload: inv('cloud:upload'), uploadVideo: inv('cloud:uploadVideo'),
     onProgress: (cb) => {

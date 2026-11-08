@@ -457,8 +457,18 @@ async function readJson(res) {
 async function cloudFetch(route, init) {
   if (!/^\/api\//.test(route)) throw new Error('Bad route');
   const { url, headers } = await cloudHeaders(init.headers);
-  try { return await net.fetch(url + route, { ...init, headers }); }
-  catch (_) { throw new Error('Cannot reach your Endora Cloud. Check the internet connection.'); }
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // Electron's network stack first (uses the system proxy), then Node's fetch as a fallback
+      return attempt === 1 ? await fetch(url + route, { ...init, headers }) : await net.fetch(url + route, { ...init, headers });
+    } catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
+  }
+  const why = String((lastErr && (lastErr.cause && lastErr.cause.code || lastErr.message)) || lastErr).replace(/^net::/, '');
+  throw new Error(`Cannot reach your Endora Cloud at ${new URL(url).host} (${why}). Open Settings → Test connection.`);
 }
 
 ipcMain.handle('cloud:status', async () => {
@@ -484,6 +494,39 @@ ipcMain.handle('cloud:disconnect', async () => {
   return true;
 });
 
+// Settings → Test connection: checks the address, the Worker and this PC's key, step by step.
+ipcMain.handle('cloud:test', async () => {
+  const s = await readSettings();
+  if (!s.cloud) return { ok: false, step: 'setup', message: 'Cloudflare is not connected on this PC yet.' };
+  const url = s.cloud.url;
+  const out = { url, steps: [] };
+  try {
+    const r = await net.fetch(url + '/api/health', { headers: { 'cache-control': 'no-cache' } });
+    const j = await r.json().catch(() => ({}));
+    out.steps.push({ name: 'Site address', ok: r.ok, detail: r.ok ? `online (server version ${j.version})` : `HTTP ${r.status}` });
+    if (!r.ok) return { ...out, ok: false };
+    out.version = j.version;
+  } catch (err) {
+    const why = String((err.cause && err.cause.code) || err.message).replace(/^net::/, '');
+    out.steps.push({ name: 'Site address', ok: false, detail: why });
+    out.hint = /NAME_NOT_RESOLVED|ENOTFOUND/i.test(why)
+      ? 'The workers.dev address is not found. A new address can take up to 10 minutes. If it still fails, press Disconnect and Connect Cloudflare again.'
+      : 'This computer cannot open the address. Check the internet, a VPN or firewall, then open the address in your browser.';
+    return { ...out, ok: false };
+  }
+  try {
+    const me = await readJson(await cloudFetch('/api/me', { method: 'GET', headers: {} }));
+    out.steps.push({ name: 'This PC', ok: true, detail: 'allowed to send albums' });
+    out.owner = me.owner;
+  } catch (err) {
+    out.steps.push({ name: 'This PC', ok: false, detail: err.message });
+    out.hint = 'This PC is not allowed to send yet. Press Disconnect and Connect Cloudflare again with your token.';
+    return { ...out, ok: false };
+  }
+  return { ...out, ok: true };
+});
+ipcMain.handle('cloud:openUrl', async () => { const s = await readSettings(); if (s.cloud) shell.openExternal(s.cloud.url + '/api/health'); });
+
 ipcMain.handle('cloud:request', async (_e, method, route, body) => {
   const res = await cloudFetch(route, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   return readJson(res);
@@ -492,7 +535,7 @@ ipcMain.handle('cloud:request', async (_e, method, route, body) => {
 // one spread image
 ipcMain.handle('cloud:upload', async (_e, route, contentType, data) => {
   const buf = Buffer.from(data);
-  return readJson(await cloudFetch(route, { method: 'PUT', headers: { 'content-type': contentType, 'content-length': String(buf.length) }, body: buf }));
+  return readJson(await cloudFetch(route, { method: 'PUT', headers: { 'content-type': contentType }, body: buf }));
 });
 
 // highlight video in 50 MB parts (Workers accept up to 100 MB per request)
@@ -512,7 +555,7 @@ ipcMain.handle('cloud:uploadVideo', async (e, route, filePath, type) => {
     });
     let tries = 0, part;
     while (!part) {
-      try { part = await readJson(await cloudFetch(`${route}/part?${q}&n=${i + 1}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'content-length': String(buf.length) }, body: buf })); }
+      try { part = await readJson(await cloudFetch(`${route}/part?${q}&n=${i + 1}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: buf })); }
       catch (err) { if (++tries >= 3) throw err; await new Promise((r) => setTimeout(r, 2000 * tries)); }
     }
     parts.push({ partNumber: part.partNumber, etag: part.etag });

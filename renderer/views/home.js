@@ -1,6 +1,6 @@
 import { state, openProject, render } from '../app.js';
 import { esc, fmtNum, ICON, toast } from '../lib/dom.js';
-import { newAlbumModal, settingsModal } from './modals.js';
+import { newAlbumModal, settingsModal, deleteFromCloud } from './modals.js';
 
 const STATUSES = ['All', 'Designing', 'Client review', 'Approved', 'Printing'];
 let filter = 'All';
@@ -59,6 +59,9 @@ export function renderHome(root) {
       e.stopPropagation();
       const p = state.projects.find((x) => x.id === t.dataset.del);
       if (!confirm(`Delete the album "${p.couple}"? Your original photos are not touched.`)) return;
+      if (p.cloud && p.cloud.albumId && confirm('This album also has a client link on Cloudflare. Delete it from Cloudflare too, to free the space?')) {
+        await deleteFromCloud(p.cloud.albumId, p.couple, true).catch(() => {});
+      }
       await window.api.projects.remove(p.id);
       state.projects = state.projects.filter((x) => x.id !== p.id);
       render(); toast('Album deleted');

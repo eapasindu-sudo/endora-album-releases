@@ -2,7 +2,7 @@
 // Desktop app API (album upload), private client viewer, comments, approvals.
 import VIEWER_HTML from './viewer.html';
 
-export const WORKER_VERSION = 4;
+export const WORKER_VERSION = 5;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
@@ -94,6 +94,38 @@ async function caller(req, env) {
   return { owner: 'd:' + device, studio };
 }
 
+async function prefixBytes(env, prefix) {
+  let bytes = 0, files = 0, cursor;
+  do {
+    const list = await env.BUCKET.list({ prefix, cursor });
+    for (const o of list.objects) { bytes += o.size || 0; files++; }
+    cursor = list.truncated ? list.cursor : null;
+  } while (cursor);
+  return { bytes, files };
+}
+async function deletePrefix(env, prefix) {
+  let cursor;
+  do {
+    const list = await env.BUCKET.list({ prefix, cursor });
+    if (list.objects.length) await env.BUCKET.delete(list.objects.map((o) => o.key));
+    cursor = list.truncated ? list.cursor : null;
+  } while (cursor);
+}
+async function deleteAlbum(env, id) {
+  await deletePrefix(env, `albums/${id}/`);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM comments WHERE album_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM albums WHERE id = ?').bind(id)
+  ]);
+}
+// Links that ended more than 14 days ago are removed so storage stays inside the free 10 GB.
+const CLEAN_AFTER = 14 * 86400000;
+async function cleanExpired(env) {
+  const { results } = await env.DB.prepare('SELECT id FROM albums WHERE expires_at IS NOT NULL AND expires_at < ? LIMIT 20').bind(now() - CLEAN_AFTER).all();
+  for (const r of results) await deleteAlbum(env, r.id);
+  return results.length;
+}
+
 const spreadKey = (albumId, version, i) => `albums/${albumId}/v${version}/spread_${String(i + 1).padStart(2, '0')}.jpg`;
 function albumUrl(req, slug) { return `${new URL(req.url).origin}/a/${slug}`; }
 
@@ -107,8 +139,29 @@ async function apiRoutes(req, env, url) {
   if (!me) return bad('This PC is not connected to this Endora Cloud. Open Settings and connect Cloudflare again.', 401);
   if (path === '/api/me') return json({ owner: me.owner, version: WORKER_VERSION });
 
+  // storage used by this PC's albums (and the whole bucket)
+  if (path === '/api/storage' && m === 'GET') {
+    const cleaned = await cleanExpired(env);
+    const { results } = await env.DB.prepare('SELECT id, slug, couple, date, owner, created_at, updated_at, expires_at, active, approved_at, video_key FROM albums ORDER BY updated_at DESC').all();
+    const albums = [];
+    let total = 0, mine = 0;
+    for (const a of results) {
+      const { bytes } = await prefixBytes(env, `albums/${a.id}/`);
+      total += bytes;
+      if (a.owner !== me.owner) continue;
+      mine += bytes;
+      let videoBytes = 0;
+      if (a.video_key) { const h = await env.BUCKET.head(a.video_key); videoBytes = h ? h.size : 0; }
+      albums.push({ id: a.id, slug: a.slug, couple: a.couple, date: a.date, url: albumUrl(req, a.slug), bytes, videoBytes,
+        createdAt: a.created_at, updatedAt: a.updated_at, expiresAt: a.expires_at, active: !!a.active, approvedAt: a.approved_at });
+    }
+    const others = results.filter((a) => a.owner !== me.owner).length;
+    return json({ totalBytes: total, myBytes: mine, freeBytes: 10 * 1024 ** 3, albums, otherAlbums: others, cleaned, cleanAfterDays: 14 });
+  }
+
   // create or update an album
   if (path === '/api/albums' && m === 'POST') {
+    await cleanExpired(env);
     const b = await body(req);
     const spreads = Math.max(1, Math.min(200, b.spreads | 0));
     const pin = /^\d{4,8}$/.test(String(b.pin)) ? String(b.pin) : String(1000 + Math.floor(Math.random() * 9000));
@@ -155,6 +208,11 @@ async function apiRoutes(req, env, url) {
   }
 
   // video: R2 multipart upload in 50 MB parts, so films of any size work
+  if (sub === '/video' && m === 'DELETE') {
+    if (album.video_key) await env.BUCKET.delete(album.video_key);
+    await env.DB.prepare("UPDATE albums SET video_key = NULL, video_type = NULL, video_pos = 'none' WHERE id = ?").bind(album.id).run();
+    return json({ ok: true });
+  }
   if (sub.startsWith('/video')) {
     const step = am[4];
     if (step === 'start' && m === 'POST') {
@@ -215,18 +273,10 @@ async function apiRoutes(req, env, url) {
     return json({ ok: true });
   }
   if (!sub && m === 'DELETE') {
-    let cursor;
-    do {
-      const list = await env.BUCKET.list({ prefix: `albums/${album.id}/`, cursor });
-      if (list.objects.length) await env.BUCKET.delete(list.objects.map((o) => o.key));
-      cursor = list.truncated ? list.cursor : null;
-    } while (cursor);
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM comments WHERE album_id = ?').bind(album.id),
-      env.DB.prepare('DELETE FROM albums WHERE id = ?').bind(album.id)
-    ]);
+    await deleteAlbum(env, album.id);
     return json({ ok: true });
   }
+
   return bad('Not found', 404);
 }
 

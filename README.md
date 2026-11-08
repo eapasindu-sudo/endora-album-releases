@@ -87,7 +87,8 @@ npm run dist:win   # Windows installer එක dist/ folder එකට (Windows PC
 - **Print check / Export**: guides, print proof, mockup, DPI warnings, JPG/TIFF 300 DPI with bleed
 - **Send to client**: Cloudflare link එක + PIN, video, cover, comments, approve, WhatsApp/Email/QR
 - **Client ම album cover එක design කරනවා**: flipbook එකේ "Design your album cover" button එකෙන් client ට style එක (Plain / Glass top / Photo cover), material එක (Leather / Linen / Velvet), colour එක, glass top එකට දාන photo එක, සහ name tag එක (Gold / Silver / Rose gold / Black + නම) තෝරන්න පුළුවන්. Cover එක live පේනවා. Save කළාම app එකේ Send to client එකේ ඒ cover එකම පේනවා. Offer කරන්න ඕනේ materials සහ styles ඔයාට තෝරන්න පුළුවන්.
-- **Settings**: studio name, Cloudflare connect/disconnect, check for updates, dark/light theme
+- **Settings**: studio name, Cloudflare connect/disconnect, **Test connection**, check for updates, dark/light theme
+- **Cloud storage**: Cloudflare එකේ GB කීයක් පාවිච්චි කරලාද, album එකකට MB කීයද කියලා පේනවා. **Delete** (මුළු album එකම) හෝ **Delete film** (video එක විතරක්) ඔබලා ඉඩ නිදහස් කරගන්න පුළුවන්. Expire වුණු links දින 14කට පස්සේ තනියම delete වෙනවා. ඒ නිසා free 10GB එක ඉක්මනට ඉවර වෙන්නේ නැහැ.
 
 ## දැනට නැති දේවල්
 - RAW/HEIC files කෙලින්ම කියවන්නේ නැහැ. Lightroom එකෙන් JPG/TIFF කරලා import කරන්න.
