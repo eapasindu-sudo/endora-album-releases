@@ -1,6 +1,8 @@
 // Endora Album – layout engine (pure functions, no DOM; tested with node --test)
 // All cell coordinates are fractions of the full spread: x,y,w,h in 0..1.
 
+import { DESIGNS, designColours, fillTokens } from './designs.js';
+
 export const MAX_PER_SPREAD = 40;
 
 export const STANDARD_SIZES = [
@@ -347,6 +349,29 @@ export function heroPick(group, hero, size, styleName, random = Math.random) {
   return { tpl: { id, name: 'Opening', creative: true, look: lookOf(id), count: group.length }, cells, order: sorted, cost: 0 };
 }
 
+// ---------- magazine designs (colour blocks, frames, circles, title text) ----------
+export function designPick(d, photos, size, opts = {}) {
+  if (!d || d.n !== photos.length) return null;
+  const info = sizeInfo(size);
+  const col = designColours(opts.hero || photos[0]);
+  const built = d.build(info.pageAspect, col);
+  const cells = built.cells.map((c) => ({ ...c }));
+  let order, cost;
+  if (opts.hero && photos.includes(opts.hero) && photos.length > 1) {
+    // the hero photo takes the biggest frame, the rest are matched by shape
+    const big = cells.reduce((b, c, i) => (c.w * c.h > cells[b].w * cells[b].h ? i : b), 0);
+    const restIdx = cells.map((_, i) => i).filter((i) => i !== big);
+    const a = assignPhotos(restIdx.map((i) => cells[i]), photos.filter((p) => p !== opts.hero), info.aspect);
+    order = new Array(cells.length);
+    order[big] = opts.hero;
+    restIdx.forEach((ci, k) => { order[ci] = a.order[k]; });
+    cost = a.cost;
+  } else ({ order, cost } = assignPhotos(cells, photos, info.aspect));
+  const texts = built.texts.map((t) => ({ ...t, id: uid(), text: fillTokens(t.text, opts.info) })).filter((t) => t.text.trim());
+  return { tpl: { id: 'd:' + d.id, name: d.name, design: true, look: 'd:' + d.id, count: d.n }, cells, order, cost, shapes: built.shapes.map((x) => ({ ...x })), texts };
+}
+export const designsFor = (n, opening) => DESIGNS.filter((d) => d.n === n && (opening == null || !!d.opening === opening));
+
 // ---------- user templates ("My templates") ----------
 // { id: 'u:…', name, count, cells:[{x,y,w,h}] } – cells as fractions of the spread, any album size.
 export function userTemplatePick(t, photos, size) {
@@ -387,11 +412,12 @@ export function bestTemplate(photos, size, styleName, opts = {}) {
     // designer looks get a head start so albums are never just grids
     for (const idea of creativeIdeas([...photos].sort((a, b) => a.takenAt - b.takenAt), size, styleName, { seed, n: 6, tries: Math.min(700, 120 + n * 50), random: opts.random })) consider(idea, -0.06);
   }
+  if (!opts.noGen) for (const d of designsFor(n, false)) consider(designPick(d, photos, size, { info: opts.info }), -0.1);
   for (const u of opts.userTemplates || []) consider(userTemplatePick(u, photos, size), -0.3);    // the photographer's own saved designs come first
   return best;
 }
 
-export function layoutIdeasFor(photos, size, styleName, page, userTemplates) {
+export function layoutIdeasFor(photos, size, styleName, page, userTemplates, info) {
   // page 0, 1, 2 … : every page shows the next 16 best ideas, so "Show new ideas" never runs dry
   const n = photos.length;
   const per = 16;
@@ -414,7 +440,8 @@ export function layoutIdeasFor(photos, size, styleName, page, userTemplates) {
     if (designer[i]) mixed.push(designer[i]);
     if (grid[i] && mixed.length < per) mixed.push(grid[i]);
   }
-  return { ideas: mixed, mine };
+  const designs = page === 0 ? designsFor(n).map((d) => designPick(d, photos, size, { info })).filter(Boolean) : [];
+  return { ideas: designs.concat(mixed).slice(0, per + designs.length), mine };
 }
 
 export function focalFor(photo) {
@@ -429,7 +456,8 @@ export function makeSpread(tplPick, extra = {}) {
     bg: extra.bg || '#FFFFFF',
     section: extra.section || '',
     locked: false,
-    texts: extra.texts || [],
+    texts: (extra.texts || []).filter((t) => !t.d).concat(tplPick.texts || []),
+    shapes: tplPick.shapes || [],
     cells: tplPick.cells.map((c, i) => ({ ...c, photoId: tplPick.order[i].id, ...focalFor(tplPick.order[i]), zoom: 1 }))
   };
 }
@@ -570,9 +598,14 @@ export function autoBuild(photos, opts) {
     const counts = opts.useEvery ? evenCounts(n, ev.photos.length)
       : opts.range ? rangeCounts(n, ev.photos.length, opts.range[0], opts.range[1], random)
       : countsFor(n, ev.photos.length, st.avg, random);
-    let heroIdx = -1;
+    let heroIdx = -1, opening = null;
     if (opts.hero !== false && n >= 2 && !opts.useEvery) {
       counts[0] = Math.min(3, ev.photos.length);
+      if (opts.text) {
+        const ok = DESIGNS.filter((d) => d.opening && d.n <= ev.photos.length && d.n <= Math.max(3, counts[0] + 2));
+        opening = ok.length ? ok[Math.floor(random() * ok.length)] : null;
+        if (opening) counts[0] = opening.n;
+      }
       // hero: best scored (or starred) landscape-ish photo
       const cands = ev.photos.map((p, i) => ({ p, i, s: (p.score || 0.5) + (p.star ? 1 : 0) + (p.width >= p.height ? 0.15 : 0) }));
       cands.sort((a, b) => b.s - a.s);
@@ -589,18 +622,30 @@ export function autoBuild(photos, opts) {
 
     const bg = opts.color && ev.photos[0] && ev.photos[0].avgColor ? lighten(ev.photos[0].avgColor, 0.88) : st.bg;
     for (let s = 0; s < n; s++) {
-      let group;
+      let group, forced = null;
       if (s === 0 && hero) group = [hero, ...chosen.splice(0, counts[0] - 1)];
-      else group = chosen.splice(0, counts[s]);
+      else {
+        // about one spread in three becomes a magazine design (colour blocks, frames, circles)
+        let take = counts[s];
+        if (!opts.useEvery && !opts.range && s > 0 && random() < 0.36) {
+          const later = counts.slice(s + 1).reduce((a, b) => a + b, 0);
+          const ok = DESIGNS.filter((d) => !d.opening && Math.abs(d.n - take) <= 2 && chosen.length - d.n >= later && !recent.slice(-4).includes('d:' + d.id));
+          if (ok.length) { const d = ok[Math.floor(random() * ok.length)]; take = d.n; forced = d; }
+        }
+        group = chosen.splice(0, take);
+      }
       if (!group.length) break;
-      let pick = s === 0 && hero ? heroPick(group, hero, opts.size, style, random) : null;
-      if (!pick) pick = bestTemplate(group, opts.size, style, { avoid: recent.slice(-Math.max(reuseWindow, 3)), random, userTemplates: opts.userTemplates });
+      const title = (opts.titles && opts.titles[ev.name]) || ev.name;
+      const info = { title, couple: opts.couple, date: opts.date };
+      let pick = s === 0 && hero && opening && group.length === opening.n ? designPick(opening, group, opts.size, { hero, info }) : null;
+      if (!pick && forced) pick = designPick(forced, group, opts.size, { info });
+      if (!pick && s === 0 && hero) pick = heroPick(group, hero, opts.size, style, random);
+      if (!pick) pick = bestTemplate(group, opts.size, style, { avoid: recent.slice(-Math.max(reuseWindow, 3)), random, userTemplates: opts.userTemplates, info });
       if (!pick) pick = bestTemplate(group, opts.size, 'Classic', { allowFull: true });
       if (!pick) pick = bestTemplate(group.slice(0, 1), opts.size, style, { allowFull: true });
       recent.push(pick.tpl.look || pick.tpl.id);
       const texts = [];
-      if (s === 0 && opts.text) {
-        const title = (opts.titles && opts.titles[ev.name]) || ev.name;
+      if (s === 0 && opts.text && !(pick.texts && pick.texts.length)) {
         texts.push(makeText(title, pick, opts.size, style));
       }
       spreads.push(makeSpread(pick, { bg, section: ev.name, texts }));
@@ -621,15 +666,16 @@ export function makeText(text, pick, size, style) {
 }
 
 // Re-layout one spread with a chosen layout (built-in, AI idea "g:…" or user "u:…"), keeping its photos.
-export function applyTemplate(spread, tplId, photosById, size, style, userTemplates) {
+export function applyTemplate(spread, tplId, photosById, size, style, userTemplates, info) {
   const photos = spread.cells.map((c) => photosById.get(c.photoId)).filter(Boolean);
-  const pick = pickForId(tplId, photos, size, style, userTemplates);
+  const pick = pickForId(tplId, photos, size, style, userTemplates, { ...(info || {}), title: (info && info.title) || spread.section });
   if (!pick) return spread;
-  return { ...spread, layoutId: tplId, cells: pick.cells.map((c, i) => ({ ...c, photoId: pick.order[i].id, ...focalFor(pick.order[i]), zoom: 1 })) };
+  return { ...spread, layoutId: tplId, shapes: pick.shapes || [], texts: (spread.texts || []).filter((t) => !t.d).concat(pick.texts || []), cells: pick.cells.map((c, i) => ({ ...c, photoId: pick.order[i].id, ...focalFor(pick.order[i]), zoom: 1 })) };
 }
 
-export function pickForId(tplId, photos, size, style, userTemplates) {
+export function pickForId(tplId, photos, size, style, userTemplates, info) {
   if (!tplId) return null;
+  if (tplId.startsWith('d:')) return designPick(DESIGNS.find((d) => 'd:' + d.id === tplId), photos, size, { info });
   if (tplId.startsWith('g:')) {
     const sorted = [...photos].sort((a, b) => a.takenAt - b.takenAt);
     const cells = cellsFromGenId(tplId, sorted, size, style);

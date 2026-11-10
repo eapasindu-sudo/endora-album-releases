@@ -46,6 +46,26 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
   ctx.fillStyle = spread.bg || '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const drawShape = (sh) => {
+    // shapes touching an edge run into the bleed like photos do
+    let x = bleed + sh.x * trimW, y = bleed + sh.y * trimH, w = sh.w * trimW, h = sh.h * trimH;
+    if (sh.fill) {
+      if (sh.x < 0.002) { x -= bleed; w += bleed; }
+      if (sh.y < 0.002) { y -= bleed; h += bleed; }
+      if (sh.x + sh.w > 0.998) w += bleed;
+      if (sh.y + sh.h > 0.998) h += bleed;
+    }
+    ctx.beginPath();
+    if (sh.circle) ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); else ctx.rect(x, y, w, h);
+    if (sh.fill) { ctx.fillStyle = sh.fill; ctx.fill(); }
+    if (sh.stroke) {
+      const lw = Math.max(1, (sh.lw || 0.002) * trimH);
+      ctx.lineWidth = lw; ctx.strokeStyle = sh.stroke;
+      ctx.beginPath(); ctx.rect(x + lw / 2, y + lw / 2, w - lw, h - lw); ctx.stroke();
+    }
+  };
+  for (const sh of spread.shapes || []) if (!sh.front) drawShape(sh);
+
   for (const c of spread.cells) {
     const p = byId.get(c.photoId);
     if (!p) continue;
@@ -70,9 +90,20 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
     ext.w = Math.min(ext.w, p.width); ext.h = Math.min(ext.h, p.height);
     const buf = await api().photos.crop(p.path, ext, w, h);
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/jpeg' }));
-    ctx.drawImage(bmp, x, y, w, h);
+    if (c.border) {
+      const b = c.border.w * trimH;
+      ctx.fillStyle = c.border.color || '#FFFFFF';
+      ctx.beginPath();
+      if (c.round === 'circle') ctx.ellipse(x + w / 2, y + h / 2, w / 2 + b, h / 2 + b, 0, 0, Math.PI * 2); else ctx.rect(x - b, y - b, w + 2 * b, h + 2 * b);
+      ctx.fill();
+    }
+    if (c.round === 'circle') {
+      ctx.save(); ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(bmp, x, y, w, h); ctx.restore();
+    } else ctx.drawImage(bmp, x, y, w, h);
     bmp.close();
   }
+  for (const sh of spread.shapes || []) if (sh.front) drawShape(sh);
 
   for (const a of spread.arts || []) {
     const w = a.w * trimW;

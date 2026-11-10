@@ -18,13 +18,19 @@ export function spreadHTML(spread, project, byId, opts = {}) {
   const cls = ['spread', opts.className || '', opts.selected ? 'sel' : '', spread.locked && opts.interactive ? 'locked' : ''].join(' ');
   const attrs = opts.interactive ? ` data-spread="${opts.index}"` : '';
   let out = `<div class="${cls}"${attrs} style="width:${W}px;height:${H}px;background:${esc(spread.bg || '#fff')};${opts.filter ? 'filter:' + opts.filter + ';' : ''}">`;
+  const shapeHTML = (sh) => {
+    const lw = Math.max(1, (sh.lw || 0.002) * H);
+    return `<div class="shape" style="left:${(sh.x * W).toFixed(2)}px;top:${(sh.y * H).toFixed(2)}px;width:${(sh.w * W).toFixed(2)}px;height:${(sh.h * H).toFixed(2)}px;${sh.fill ? 'background:' + esc(sh.fill) + ';' : ''}${sh.stroke ? `border:${lw.toFixed(1)}px solid ${esc(sh.stroke)};` : ''}${sh.circle ? 'border-radius:50%;' : ''}"></div>`;
+  };
+  (spread.shapes || []).filter((sh) => !sh.front).forEach((sh) => { out += shapeHTML(sh); });
   spread.cells.forEach((c, ci) => {
     const p = byId.get(c.photoId);
     const fx = Math.round((c.fx == null ? 0.5 : c.fx) * 100), fy = Math.round((c.fy == null ? 0.42 : c.fy) * 100);
     const z = c.zoom || 1;
     const sel = opts.selCell === ci ? ' sel' : '';
     const ca = opts.interactive ? ` data-cell="${ci}" draggable="true"` : '';
-    out += `<div class="cell${sel}"${ca} style="left:${(c.x * W).toFixed(2)}px;top:${(c.y * H).toFixed(2)}px;width:${(c.w * W).toFixed(2)}px;height:${(c.h * H).toFixed(2)}px">`;
+    const deco = (c.round === 'circle' ? 'border-radius:50%;' : '') + (c.border ? `box-shadow:0 0 0 ${Math.max(1, c.border.w * H).toFixed(1)}px ${esc(c.border.color || '#fff')};z-index:1;` : '');
+    out += `<div class="cell${sel}"${ca} style="left:${(c.x * W).toFixed(2)}px;top:${(c.y * H).toFixed(2)}px;width:${(c.w * W).toFixed(2)}px;height:${(c.h * H).toFixed(2)}px;${deco}">`;
     if (p) out += `<img src="${esc(photoUrl(p))}" alt="" loading="lazy" style="object-position:${fx}% ${fy}%;--fx:${fx}%;--fy:${fy}%;transform:scale(${z})">`;
     if (opts.showDpi && p) {
       const dpi = cellDpi(c, p, project.size);
@@ -32,6 +38,7 @@ export function spreadHTML(spread, project, byId, opts = {}) {
     }
     out += '</div>';
   });
+  (spread.shapes || []).filter((sh) => sh.front).forEach((sh) => { out += shapeHTML(sh).replace('class="shape"', 'class="shape front"'); });
   (spread.arts || []).forEach((a, ai) => {
     const url = artUrl(a.src);
     const wpx = a.w * W, hpx = wpx * a.ar;

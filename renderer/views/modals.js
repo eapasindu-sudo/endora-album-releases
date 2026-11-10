@@ -498,7 +498,7 @@ function runBuild() {
     hero: b.opts.hero, text: b.opts.text, color: b.opts.color, starsOnly: b.opts.starsOnly,
     newSpreadPerPart: b.opts.newSpreadPerPart, useEvery: b.useEvery, reuse: b.reuse,
     range: b.perSpread === 'range' ? [b.min, b.max] : null,
-    events: p.events, titles, skip,
+    events: p.events, titles, skip, couple: p.couple, date: p.date,
     userTemplates: b.opts.myTemplates !== false ? (state.settings.userTemplates || []) : []
   });
   mutate(() => {

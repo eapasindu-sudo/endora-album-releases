@@ -249,7 +249,7 @@ function wireStage() {
       t.contentEditable = 'false';
       const s = curSpread(); const ti = +t.dataset.text;
       if (s && s.texts[ti] && s.texts[ti].text !== t.innerText) {
-        snapshot(); s.texts[ti].text = t.innerText.trim() || ' ';
+        snapshot(); s.texts[ti].text = t.innerText.trim() || ' '; delete s.texts[ti].d;
         if (/[඀-෿]/.test(s.texts[ti].text) && s.texts[ti].font !== 'sinhala') s.texts[ti].font = 'sinhala';
         saveSoon(); refresh(['stage', 'strip']);
       }
@@ -499,7 +499,7 @@ function onFloatInput(e) {
 // ================= spread operations =================
 function relayout(spread, photos, seed) {
   const p = P();
-  const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2, random: seed ? rng(seed) : null, avoid: [spread.layoutId], userTemplates: state.settings.userTemplates })
+  const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2, random: seed ? rng(seed) : null, avoid: [spread.layoutId], userTemplates: state.settings.userTemplates, info: { couple: p.couple, date: p.date, title: spread.section } })
     || bestTemplate(photos, p.size, 'Classic', { allowFull: true });
   if (!pick) return spread;
   const ns = makeSpread(pick, { id: spread.id, bg: spread.bg, section: spread.section, texts: spread.texts });
@@ -589,9 +589,9 @@ function renderPanel() {
         ${sub === 'ideas' ? `<button class="btn ghost" data-pn="ideas" style="height:28px;font-size:12px">${ICON.shuffle}Show new ideas</button>` : ''}
       </div>
       <button class="btn" data-pn="savetpl" style="height:30px;font-size:12px">${ICON.plus}Save this spread as my template</button>`;
-    const { ideas, mine } = layoutIdeasFor(photos, p.size, p.build.style, state.layoutPage || 0, userT);
+    const { ideas, mine } = layoutIdeasFor(photos, p.size, p.build.style, state.layoutPage || 0, userT, { couple: p.couple, date: p.date, title: s.section });
     const tile = (r, del) => {
-      const fake = { ...s, texts: [], cells: r.cells.map((c, i) => ({ ...c, photoId: r.order[i].id, ...focalFor(r.order[i]), zoom: 1 })) };
+      const fake = { ...s, texts: r.texts || [], shapes: r.shapes || [], cells: r.cells.map((c, i) => ({ ...c, photoId: r.order[i].id, ...focalFor(r.order[i]), zoom: 1 })) };
       return `<div style="position:relative"><button class="layout-tile ${r.tpl.id === s.layoutId ? 'on' : ''}" data-layout="${esc(r.tpl.id)}" title="${esc(r.tpl.name || '')}">${spreadHTML(fake, p, state.byId, { height: 42 })}</button>
         ${del ? `<button class="icon-btn" data-deltpl="${esc(r.tpl.id)}" aria-label="Delete template" style="position:absolute;right:-6px;top:-8px;width:22px;height:22px;background:var(--bg2);border:1px solid var(--line2);border-radius:11px">${ICON.close}</button>` : ''}</div>`;
     };
@@ -702,7 +702,7 @@ function wirePanel() {
     if (t.dataset.tab) { state.panelTab = t.dataset.tab; refresh(['panel']); return; }
     if (t.dataset.layout) {
       if (s.locked) return toast('This spread is locked. Unlock it to change the layout.');
-      mutate(() => { p.spreads[si] = applyTemplate(s, t.dataset.layout, state.byId, p.size, p.build.style, state.settings.userTemplates); }, ['stage', 'panel', 'strip']);
+      mutate(() => { p.spreads[si] = applyTemplate(s, t.dataset.layout, state.byId, p.size, p.build.style, state.settings.userTemplates, { couple: p.couple, date: p.date, title: s.section }); }, ['stage', 'panel', 'strip']);
       return;
     }
     if (t.dataset.bg) { mutate(() => { s.bg = t.dataset.bg; }, ['stage', 'panel', 'strip']); return; }
