@@ -118,12 +118,12 @@ test('stars only uses starred photos', () => {
   spreads.flatMap((s) => s.cells).forEach((c) => assert.ok(+c.photoId.slice(1) < 30));
 });
 
-import { generateIdeas, cellsFromGenId, applyTemplate as applyT, layoutIdeasFor, userTemplatePick, MAX_PER_SPREAD } from '../renderer/lib/layout.js';
+import { creativeIdeas, generateIdeas, cellsFromGenId, applyTemplate as applyT, layoutIdeasFor, userTemplatePick, MAX_PER_SPREAD } from '../renderer/lib/layout.js';
 
 const overlap = (a, b) => a.x < b.x + b.w - 1e-6 && b.x < a.x + a.w - 1e-6 && a.y < b.y + b.h - 1e-6 && b.y < a.y + a.h - 1e-6;
 
 test('AI ideas fit inside the spread, never overlap, and keep off the centre fold', () => {
-  for (const n of [1, 2, 3, 5, 8, 12, 20, 40]) {
+  for (const n of [2, 3, 5, 8, 12, 20, 40]) {
     const photos = fakePhotos(n);
     for (const style of Object.keys(STYLES)) {
       const ideas = generateIdeas(photos, size, style, { seed: 3, n: 6 });
@@ -185,4 +185,25 @@ test('user templates are used and applied', () => {
   assert.equal(applyT(s0, 'u:test', byId, size, 'Classic', [mine]).layoutId, 'u:test');
   const { ideas, mine: m } = layoutIdeasFor(photos, size, 'Classic', 1, [mine]);
   assert.ok(ideas.length >= 4); assert.equal(m.length, 1);
+});
+
+test('designer layouts: never one photo across both pages, nothing crosses the fold', () => {
+  for (const n of [1, 2, 3, 4, 6, 9, 14]) {
+    const photos = fakePhotos(n);
+    for (const style of Object.keys(STYLES)) {
+      const ideas = creativeIdeas(photos, size, style, { seed: 5, n: 8 });
+      assert.ok(ideas.length >= 2, `no designer ideas for ${n} ${style}`);
+      for (const idea of ideas) {
+        assert.equal(idea.cells.length, n);
+        idea.cells.forEach((c, i) => {
+          assert.ok(c.x >= -1e-9 && c.y >= -1e-9 && c.x + c.w <= 1 + 1e-9 && c.y + c.h <= 1 + 1e-9, 'outside ' + idea.tpl.id);
+          assert.ok(c.x + c.w <= 0.5 + 1e-9 || c.x >= 0.5 - 1e-9, 'crosses fold ' + idea.tpl.id);
+          idea.cells.slice(i + 1).forEach((d) => assert.ok(!overlap(c, d), 'overlap ' + idea.tpl.id));
+        });
+      }
+    }
+  }
+  const spreads = autoBuild(fakePhotos(200), { spreads: 30, size, style: 'Classic', seed: 2, text: true });
+  for (const s of spreads) for (const c of s.cells) assert.ok(c.x + c.w <= 0.5 + 1e-9 || c.x >= 0.5 - 1e-9, 'auto build crosses fold ' + s.layoutId);
+  assert.ok(new Set(spreads.map((s) => s.layoutId)).size >= 25, 'not varied');
 });

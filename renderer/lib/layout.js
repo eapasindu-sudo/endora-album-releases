@@ -51,10 +51,8 @@ export const PAGE_LAYOUTS = PAGE;
 
 // Spread templates: either a full-spread layout or a left+right page pair.
 export function buildTemplates() {
-  const list = [
-    { id: 'spread-hero', name: 'Full spread hero', full: [[0, 0, 1, 1]] },
-    { id: 'spread-pano-2', name: 'Panorama + one', full: [[0, 0, 0.68, 1], [0.68, 0, 0.32, 1]] }
-  ];
+  // No layout puts one photo across both pages: a face on the fold is lost in the binding.
+  const list = [];
   const keys = Object.keys(PAGE);
   for (const l of keys) for (const r of keys) list.push({ id: l + '|' + r, name: l + ' + ' + r, left: l, right: r });
   return list.map((t) => ({ ...t, count: t.full ? t.full.length : PAGE[t.left].length + PAGE[t.right].length }));
@@ -224,9 +222,8 @@ export function generateIdeas(photos, size, styleName = 'Classic', opts = {}) {
   const seen = new Map();
   for (let t = 0; t < tries; t++) {
     let id;
-    if (n === 1) id = 'g:0';
-    else if (n === 2 && rand() < 0.25) id = 'g:' + ser(rTree(0, 2, rand));
-    else {
+    if (n === 1) return [];              // one photo: the designer layouts below handle it (never across the fold)
+    {
       const mid = n / 2;
       let k = Math.round(mid + (rand() - 0.5) * Math.min(4, n));
       k = Math.max(1, Math.min(n - 1, k));
@@ -236,9 +233,118 @@ export function generateIdeas(photos, size, styleName = 'Classic', opts = {}) {
     const cells = cellsFromGenId(id, photos, size, styleName);
     if (!cells) continue;
     seen.set(id, { tpl: { id, name: 'Idea', gen: true, count: n }, cells, order: photos, cost: layoutCost(cells, photos, A) });
-    if (n === 1) break;
   }
   return [...seen.values()].sort((a, b) => a.cost - b.cost).slice(0, want);
+}
+
+
+// ---------- Designer layouts (uncommon looks) ----------
+// Each page gets its own design: a photo island that keeps the photos' own shapes and floats in
+// white space (anchored to a corner, an edge or the centre, at different sizes), a full-bleed page,
+// or an empty page left for a title. Nothing ever crosses the fold.
+// Id:  c:<left>~<right>   page = "-" (empty) | "<pos><scale>/<tree>"   e.g.  c:f/0~t68/H(1,2)
+//   pos: f = full bleed page, F = full page inside the margin, c t b l r tl tr bl br = island anchor
+const POS = ['c', 't', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br'];
+const SCALES = [70, 78, 86, 94, 100];
+
+function pageSpec(str) {
+  if (str === '-') return null;
+  const [head, tree] = str.split('/');
+  const m = /^([a-zA-Z]+)(\d*)$/.exec(head);
+  if (!m || !tree) return undefined;
+  return { pos: m[1], scale: m[2] ? +m[2] / 100 : 1, tree: parseTree(tree) };
+}
+
+export function cellsFromCreativeId(id, photos, size, styleName) {
+  const st = STYLES[styleName] || STYLES.Classic;
+  const A = sizeInfo(size).aspect, half = A / 2;
+  const g = Math.max(st.gap, 0.012);
+  const asp = photos.map((p) => p.width / p.height);
+  const parts = id.slice(2).split('~');
+  if (parts.length !== 2) return null;
+  const specs = parts.map(pageSpec);
+  if (specs.some((x) => x === undefined)) return null;
+  const all = specs.flatMap((sp) => (sp ? leaves(sp.tree) : []));
+  if (all.length !== photos.length || new Set(all).size !== photos.length || Math.max(...all) >= photos.length) return null;
+  const out = new Array(photos.length);
+  specs.forEach((sp, k) => {
+    if (!sp) return;
+    const x0 = k * half;
+    if (sp.pos === 'f') { placeTree(sp.tree, x0 + (k ? g / 2 : 0), 0, half - g / 2, 1, g, asp, out); return; }
+    const fm = Math.max(st.margin, 0.05);
+    if (sp.pos === 'F') { placeTree(sp.tree, x0 + fm, fm, half - 2 * fm, 1 - 2 * fm, g, asp, out); return; }
+    const pm = Math.max(st.margin * 1.4, 0.08);
+    const ax = x0 + pm, ay = pm, aw = half - 2 * pm, ah = 1 - 2 * pm;
+    const bw = aw * sp.scale, bh = ah * sp.scale;
+    const a = tAspect(sp.tree, asp);
+    let w = bw, h = bw / a;
+    if (h > bh) { h = bh; w = bh * a; }
+    const p = sp.pos;
+    const x = p.includes('l') ? ax : p.includes('r') ? ax + aw - w : ax + (aw - w) / 2;
+    const y = p.includes('t') ? ay : p.includes('b') ? ay + ah - h : ay + (ah - h) / 2;
+    placeTree(sp.tree, x, y, w, h, g, asp, out);
+  });
+  return out.map((c) => ({ x: c.x / A, y: c.y, w: c.w / A, h: c.h }));
+}
+
+const lookOf = (id) => id.slice(2).split('~').map((x) => (x === '-' ? '-' : x.split('/')[0].replace(/\d+/, ''))).join('~');
+
+function randomPage(lo, hi, rand) {
+  const n = hi - lo;
+  const r = rand();
+  const tree = ser(rTree(lo, hi, rand));
+  if (n <= 3 && r < 0.22) return 'f/' + tree;
+  if (n <= 6 && r < 0.32) return 'F/' + tree;
+  const pos = POS[Math.floor(rand() * POS.length)];
+  const scale = n >= 3 ? SCALES[2 + Math.floor(rand() * 3)] : SCALES[Math.floor(rand() * SCALES.length)];
+  return pos + scale + '/' + tree;
+}
+
+export function creativeIdeas(photos, size, styleName = 'Classic', opts = {}) {
+  const n = photos.length;
+  if (!n || n > 16) return [];
+  const rand = rng((opts.seed || 1) * 6151 + n * 17);
+  const A = sizeInfo(size).aspect;
+  const want = opts.n || 8;
+  const tries = opts.tries || Math.min(1500, 200 + n * 80);
+  const best = new Map();              // best idea for each look, so the list stays varied
+  for (let t = 0; t < tries; t++) {
+    let k;
+    if (n === 1) k = rand() < 0.5 ? 0 : 1;
+    else if (n === 2 && rand() < 0.2) k = rand() < 0.5 ? 0 : n;      // one page left empty (white space)
+    else k = Math.max(1, Math.min(n - 1, Math.round(n / 2 + (rand() - 0.5) * Math.min(4, n))));
+    const L = k === 0 ? '-' : randomPage(0, k, rand);
+    const R = k === n ? '-' : randomPage(k, n, rand);
+    if (/^f/.test(L) && /^f/.test(R)) continue;                       // two bleed pages is a plain grid
+    const id = 'c:' + L + '~' + R;
+    const cells = cellsFromCreativeId(id, photos, size, styleName);
+    if (!cells) continue;
+    let cost = layoutCost(cells, photos, A);
+    const cover = cells.reduce((s, c) => s + c.w * c.h, 0);
+    if (n >= 2) cost += Math.max(0, 0.42 - cover) * 0.7;               // too much empty paper for the photo count
+    if (n === 1 && cover < 0.12) cost += 0.2;
+    const look = lookOf(id);
+    const prev = best.get(look);
+    if (!prev || cost < prev.cost) best.set(look, { tpl: { id, name: 'Designer', creative: true, look, count: n }, cells, order: photos, cost });
+  }
+  const list = [...best.values()].sort((a, b) => a.cost - b.cost);
+  // shuffle a little among good ones so each request gives a fresh mix
+  if (opts.random) list.sort((a, b) => (a.cost + opts.random() * 0.08) - (b.cost + opts.random() * 0.08));
+  return list.slice(0, want);
+}
+
+// Opening spread of a part: the best photo on a full page, the rest (if any) as a small island
+// at the top of the other page so the title has room underneath.
+export function heroPick(group, hero, size, styleName, random = Math.random) {
+  const sorted = [...group].sort((a, b) => a.takenAt - b.takenAt);
+  const hi = sorted.indexOf(hero);
+  const rest = sorted.map((_, i) => i).filter((i) => i !== hi);
+  const heroPage = (random() < 0.6 ? 'f' : 'F') + '/' + hi;
+  const other = rest.length ? (random() < 0.5 ? 't' : 'tl') + '72/' + (rest.length === 1 ? rest[0] : rest.length === 2 ? `H(${rest[0]},${rest[1]})` : `H(${rest[0]},V(${rest[1]},${rest[2]}))`) : '-';
+  const id = 'c:' + heroPage + '~' + other;
+  const cells = cellsFromCreativeId(id, sorted, size, styleName);
+  if (!cells) return null;
+  return { tpl: { id, name: 'Opening', creative: true, look: lookOf(id), count: group.length }, cells, order: sorted, cost: 0 };
 }
 
 // ---------- user templates ("My templates") ----------
@@ -259,7 +365,7 @@ export function bestTemplate(photos, size, styleName, opts = {}) {
   const consider = (pick, bonus = 0) => {
     if (!pick) return;
     let score = pick.cost + bonus + jitter();
-    if (avoid.has(pick.tpl.id)) score += 0.08;
+    if (avoid.has(pick.tpl.look || pick.tpl.id)) score += 0.12;
     if (!best || score < best.score) best = { ...pick, score };
   };
   for (const t of TEMPLATES) {
@@ -276,7 +382,12 @@ export function bestTemplate(photos, size, styleName, opts = {}) {
     // built-in templates are tried first for small counts; ideas win when they crop clearly less
     for (const idea of ideas) consider(idea, n <= 8 ? 0.03 : 0);
   }
-  for (const u of opts.userTemplates || []) consider(userTemplatePick(u, photos, size), -0.04);
+  if (!opts.noGen) {
+    const seed = opts.random ? Math.floor(opts.random() * 1e6) : 1;
+    // designer looks get a head start so albums are never just grids
+    for (const idea of creativeIdeas([...photos].sort((a, b) => a.takenAt - b.takenAt), size, styleName, { seed, n: 6, tries: Math.min(700, 120 + n * 50), random: opts.random })) consider(idea, -0.06);
+  }
+  for (const u of opts.userTemplates || []) consider(userTemplatePick(u, photos, size), -0.3);    // the photographer's own saved designs come first
   return best;
 }
 
@@ -296,7 +407,14 @@ export function layoutIdeasFor(photos, size, styleName, page, userTemplates) {
   let ideas = pool.slice(page * per, page * per + per - builtin.length);
   if (!ideas.length && pool.length) ideas = generateIdeas(sorted, size, styleName, { seed: page + 7, n: per }); // few photos: fewer shapes exist
   const mine = (userTemplates || []).map((u) => userTemplatePick(u, photos, size)).filter(Boolean);
-  return { ideas: builtin.concat(ideas).sort((a, b) => a.cost - b.cost), mine };
+  const grid = builtin.concat(ideas).sort((a, b) => a.cost - b.cost);
+  const designer = creativeIdeas(sorted, size, styleName, { seed: page + 1, n: 10, tries: 1200, random: rng(page * 13 + 5) });
+  const mixed = [];
+  for (let i = 0; mixed.length < per && (i < designer.length || i < grid.length); i++) {
+    if (designer[i]) mixed.push(designer[i]);
+    if (grid[i] && mixed.length < per) mixed.push(grid[i]);
+  }
+  return { ideas: mixed, mine };
 }
 
 export function focalFor(photo) {
@@ -454,7 +572,7 @@ export function autoBuild(photos, opts) {
       : countsFor(n, ev.photos.length, st.avg, random);
     let heroIdx = -1;
     if (opts.hero !== false && n >= 2 && !opts.useEvery) {
-      counts[0] = 1;
+      counts[0] = Math.min(3, ev.photos.length);
       // hero: best scored (or starred) landscape-ish photo
       const cands = ev.photos.map((p, i) => ({ p, i, s: (p.score || 0.5) + (p.star ? 1 : 0) + (p.width >= p.height ? 0.15 : 0) }));
       cands.sort((a, b) => b.s - a.s);
@@ -472,14 +590,14 @@ export function autoBuild(photos, opts) {
     const bg = opts.color && ev.photos[0] && ev.photos[0].avgColor ? lighten(ev.photos[0].avgColor, 0.88) : st.bg;
     for (let s = 0; s < n; s++) {
       let group;
-      if (s === 0 && hero) group = [hero];
+      if (s === 0 && hero) group = [hero, ...chosen.splice(0, counts[0] - 1)];
       else group = chosen.splice(0, counts[s]);
       if (!group.length) break;
-      const allowFull = group.length <= 2;
-      let pick = bestTemplate(group, opts.size, style, { allowFull, avoid: recent.slice(-reuseWindow), random, userTemplates: opts.userTemplates });
+      let pick = s === 0 && hero ? heroPick(group, hero, opts.size, style, random) : null;
+      if (!pick) pick = bestTemplate(group, opts.size, style, { avoid: recent.slice(-Math.max(reuseWindow, 3)), random, userTemplates: opts.userTemplates });
       if (!pick) pick = bestTemplate(group, opts.size, 'Classic', { allowFull: true });
       if (!pick) pick = bestTemplate(group.slice(0, 1), opts.size, style, { allowFull: true });
-      if (reuseWindow) recent.push(pick.tpl.id);
+      recent.push(pick.tpl.look || pick.tpl.id);
       const texts = [];
       if (s === 0 && opts.text) {
         const title = (opts.titles && opts.titles[ev.name]) || ev.name;
@@ -516,6 +634,11 @@ export function pickForId(tplId, photos, size, style, userTemplates) {
     const sorted = [...photos].sort((a, b) => a.takenAt - b.takenAt);
     const cells = cellsFromGenId(tplId, sorted, size, style);
     return cells ? { tpl: { id: tplId }, cells, order: sorted } : null;
+  }
+  if (tplId.startsWith('c:')) {
+    const sorted = [...photos].sort((a, b) => a.takenAt - b.takenAt);
+    const cells = cellsFromCreativeId(tplId, sorted, size, style);
+    return cells ? { tpl: { id: tplId, creative: true, look: lookOf(tplId) }, cells, order: sorted } : null;
   }
   if (tplId.startsWith('u:')) return userTemplatePick((userTemplates || []).find((u) => u.id === tplId), photos, size);
   const tpl = TEMPLATES.find((t) => t.id === tplId);
