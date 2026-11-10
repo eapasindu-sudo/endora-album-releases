@@ -616,7 +616,7 @@ function renderPanel() {
       + (hidden.length ? `<div class="row" style="margin-top:10px"><span class="small muted grow">${hidden.length} hidden</span><button class="btn ghost" data-pn="showhidden" style="height:28px;font-size:12px">${state.showHiddenArt ? 'Close' : 'Show hidden'}</button></div>`
         + (state.showHiddenArt ? `<div class="art-grid" style="opacity:.7">${hidden.map((it) => artTile(it, 'hidden')).join('')}</div>` : '') : '')
       + TEXT_PACKS.map((g) => `<div class="sec-title">${esc(g.group)}</div>` + g.items.map((it, k) =>
-      `<button class="text-item" data-tp="${esc(g.group)}|${k}"><span style="font-family:${FONTS[it.font]};font-size:${it.t.length > 30 ? 14 : 18}px">${esc(it.t)}</span>${it.note ? `<span class="small muted">${esc(it.note)}</span>` : ''}</button>`).join('')).join('');
+      `<button class="text-item" data-tp="${esc(g.group)}|${k}"><span style="font-family:${FONTS[it.font]};font-size:${it.t.length > 30 ? 14 : 18}px;${it.bold ? 'font-weight:700;' : ''}${it.italic ? 'font-style:italic;' : ''}">${esc(it.t)}</span>${it.note ? `<span class="small muted">${esc(it.note)}</span>` : ''}</button>`).join('')).join('');
   } else {
     const pal = [...new Set(photos.map((ph) => ph.avgColor).filter(Boolean))].slice(0, 6);
     const fromPhotos = pal.map((c) => lighten(c, 0.86)).concat(pal.map((c) => darken(c, 0.55)));
@@ -709,7 +709,7 @@ function wirePanel() {
     if (t.dataset.tp) {
       const [g, k] = t.dataset.tp.split('|');
       const it = TEXT_PACKS.find((x) => x.group === g).items[+k];
-      addText(it.t, it.font, it.note && g === 'Quotes' ? it.note : null);
+      addText(it.t, it.font, it.note && (g === 'Quotes' || g === 'Love lines') ? it.note : null, it);
       return;
     }
     const a = t.dataset.pn;
@@ -778,13 +778,13 @@ async function saveAsTemplate(s) {
   toast('Saved to My templates. Auto Build can use it too.');
 }
 
-function addText(text, font, sub) {
+function addText(text, font, sub, style = {}) {
   const p = P(); const s = curSpread();
   if (!s) return;
   mutate(() => {
     s.texts = s.texts || [];
     const dark = isDark(s.bg);
-    s.texts.push({ id: uid(), text: sub ? text + '\n— ' + sub : text, x: 0.56, y: 0.42, w: 0.36, size: text.length > 30 ? 0.035 : 0.06, font, color: dark ? '#FFFFFF' : '#3B3026', align: 'center' });
+    s.texts.push({ id: uid(), text: sub ? text + '\n— ' + sub : text, x: 0.56, y: 0.42, w: 0.36, size: text.length > 30 ? 0.035 : 0.06, font, color: dark ? '#FFFFFF' : '#3B3026', align: 'center', ...(style.bold ? { bold: true } : {}), ...(style.italic ? { italic: true } : {}) });
     state.sel.text = s.texts.length - 1; state.sel.cell = null;
   }, ['stage', 'strip']);
   if (state.mode !== 'designer') toast('Text added. Switch to Designer to fine-tune it.');

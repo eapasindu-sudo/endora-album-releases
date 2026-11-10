@@ -97,10 +97,15 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
       if (c.round === 'circle') ctx.ellipse(x + w / 2, y + h / 2, w / 2 + b, h / 2 + b, 0, 0, Math.PI * 2); else ctx.rect(x - b, y - b, w + 2 * b, h + 2 * b);
       ctx.fill();
     }
-    if (c.round === 'circle') {
-      ctx.save(); ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(bmp, x, y, w, h); ctx.restore();
-    } else ctx.drawImage(bmp, x, y, w, h);
+    ctx.save();
+    if (c.fade != null) ctx.globalAlpha = c.fade;
+    if (c.round === 'circle') { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip(); }
+    if (c.round === 'arch') {
+      const r = Math.min(w / 2, h);
+      ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y + r); ctx.arc(x + w / 2, y + r, w / 2, Math.PI, 0); ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.clip();
+    }
+    ctx.drawImage(bmp, x, y, w, h);
+    ctx.restore();
     bmp.close();
   }
   for (const sh of spread.shapes || []) if (sh.front) drawShape(sh);
