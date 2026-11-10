@@ -16,7 +16,15 @@ export function loadPack() {
   return loaded;
 }
 
-export function packItems() { return pack; }
+// pack items still on offer: retired designs stay only so old spreads keep showing them
+export function packItems(settings = current()) {
+  const hidden = new Set(settings.hiddenWordArt || []);
+  return pack.filter((x) => !x.retired && !hidden.has(x.id));
+}
+export function hiddenPackItems(settings = current()) {
+  const hidden = new Set(settings.hiddenWordArt || []);
+  return pack.filter((x) => !x.retired && hidden.has(x.id));
+}
 
 export function userItems(settings) {
   return (settings.userWordArt || []).map((x) => ({ ...x, src: 'u:' + x.id }));

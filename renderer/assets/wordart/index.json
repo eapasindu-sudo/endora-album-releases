@@ -42,7 +42,8 @@
   "w": 36,
   "h": 739,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa006",
@@ -105,7 +106,8 @@
   "w": 552,
   "h": 800,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa013",
@@ -168,7 +170,8 @@
   "w": 811,
   "h": 1400,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa020",
@@ -285,7 +288,8 @@
   "w": 127,
   "h": 30,
   "color": "#FC0C0C",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa033",
@@ -294,7 +298,8 @@
   "w": 137,
   "h": 29,
   "color": "#FCFCFC",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa034",
@@ -303,7 +308,8 @@
   "w": 149,
   "h": 29,
   "color": "#FCFCFC",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa035",
@@ -312,7 +318,8 @@
   "w": 136,
   "h": 31,
   "color": "#FCFCFC",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa036",
@@ -483,7 +490,8 @@
   "w": 312,
   "h": 26,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa055",
@@ -492,7 +500,8 @@
   "w": 205,
   "h": 26,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa056",
@@ -501,7 +510,8 @@
   "w": 53,
   "h": 850,
   "color": "#FCFCFC",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa057",
@@ -510,7 +520,8 @@
   "w": 207,
   "h": 29,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa058",
@@ -519,7 +530,8 @@
   "w": 777,
   "h": 1400,
   "color": "#FCFCFC",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa059",
@@ -555,7 +567,8 @@
   "w": 648,
   "h": 557,
   "color": "#0C0C0C",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa063",
@@ -609,7 +622,8 @@
   "w": 485,
   "h": 1400,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa069",
@@ -636,7 +650,8 @@
   "w": 501,
   "h": 1203,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  },
  {
   "id": "wa072",
@@ -780,7 +795,8 @@
   "w": 482,
   "h": 1400,
   "color": "#0C0C0C",
-  "mono": false
+  "mono": false,
+  "retired": true
  },
  {
   "id": "wa088",
@@ -807,6 +823,7 @@
   "w": 889,
   "h": 1310,
   "color": "#0C0C0C",
-  "mono": true
+  "mono": true,
+  "retired": true
  }
 ]

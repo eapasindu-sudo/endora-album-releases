@@ -327,22 +327,17 @@ async function saveArt(rgba, w, h, name) {
   return { id, path: file, name: (name || 'Word art').replace(/\s+/g, ' ').trim().slice(0, 60), w: info.width, h: info.height, ...inkInfo(data, info.width, info.height) };
 }
 
-ipcMain.handle('wordart:import', async () => {
-  if (!sharp) throw new Error('Image engine (sharp) is missing.');
-  const res = await dialog.showOpenDialog(win, {
-    title: 'Add word art from Photoshop files or PNGs', properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Photoshop or PNG', extensions: ['psd', 'psb', 'png'] }]
-  });
-  if (res.canceled) return { items: [], skipped: [] };
+async function importArtFiles(files) {
   const items = [], skipped = [];
-  for (const f of res.filePaths) {
+  for (const f of files) {
     try {
       if (/\.png$/i.test(f)) {
         const { data, info } = await sharp(f).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
         const it = await saveArt(data, info.width, info.height, path.basename(f, path.extname(f)));
-        if (it) items.push(it);
+        if (it) items.push(it); else skipped.push(path.basename(f) + ' (empty)');
         continue;
       }
+      if (!/\.(psd|psb)$/i.test(f)) { skipped.push(path.basename(f) + ' (not PNG or PSD)'); continue; }
       const psd = readLayers(await fsp.readFile(f));
       for (const l of psd.layers) {
         const full = l.width >= psd.width * 0.95 && l.height >= psd.height * 0.95;
@@ -357,6 +352,30 @@ ipcMain.handle('wordart:import', async () => {
     } catch (err) { skipped.push(path.basename(f) + ': ' + err.message); }
   }
   return { items, skipped };
+}
+
+// kind: 'png' | 'psd' | undefined (both)
+ipcMain.handle('wordart:import', async (_e, kind) => {
+  if (!sharp) throw new Error('Image engine (sharp) is missing.');
+  const exts = kind === 'png' ? ['png'] : kind === 'psd' ? ['psd', 'psb'] : ['psd', 'psb', 'png'];
+  const res = await dialog.showOpenDialog(win, {
+    title: kind === 'png' ? 'Add PNG word art (transparent background)' : 'Add word art from Photoshop files',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: kind === 'png' ? 'PNG images' : kind === 'psd' ? 'Photoshop files' : 'Photoshop or PNG', extensions: exts }]
+  });
+  if (res.canceled) return { items: [], skipped: [] };
+  return importArtFiles(res.filePaths);
+});
+
+// files dropped on the Text panel
+ipcMain.handle('wordart:importPaths', async (_e, paths) => {
+  if (!sharp) throw new Error('Image engine (sharp) is missing.');
+  const files = [];
+  for (const p of paths || []) {
+    const st = await fsp.stat(p).catch(() => null);
+    if (st && st.isFile() && /\.(png|psd|psb)$/i.test(p)) files.push(p);
+  }
+  return importArtFiles(files);
 });
 
 ipcMain.handle('wordart:remove', async (_e, file) => {

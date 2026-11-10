@@ -272,3 +272,7 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
 .cvr .foil b { display: block; font-weight: 600; line-height: 1.1; }
 .cvr .foil span { display: block; letter-spacing: .3em; text-transform: uppercase; margin-top: 4px; opacity: .9; }
 .page-crop { position: absolute; top: 0; height: 100%; overflow: hidden; }
+
+.art-drop { border: 1.5px dashed var(--line2); border-radius: 10px; padding: 12px; text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.art-drop.over { border-color: var(--gold); color: var(--gold); background: rgba(212,180,124,.08); }
+.art-tile:not(:hover) .x { opacity: 0; }

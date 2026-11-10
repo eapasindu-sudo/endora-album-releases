@@ -4,7 +4,7 @@ import { $, esc, fmtNum, ICON, toast } from '../lib/dom.js';
 import { spreadHTML, textStyle } from '../lib/render-spread.js';
 import { sizeInfo, applyTemplate, bestTemplate, makeSpread, focalFor, lighten, uid, rng, TEMPLATES, layoutIdeasFor, MAX_PER_SPREAD } from '../lib/layout.js';
 import { TEXT_PACKS, FONTS } from '../lib/textpacks.js';
-import { packItems, userItems, artUrl, ART_COLORS, artInfo } from '../lib/wordart.js';
+import { packItems, hiddenPackItems, userItems, artUrl, ART_COLORS, artInfo } from '../lib/wordart.js';
 import { autoBuildModal, printCheckModal, shareModal, sizeModal } from './modals.js';
 import { sizeLabel } from './home.js';
 
@@ -604,11 +604,17 @@ function renderPanel() {
       body += `<p class="small muted" style="margin-top:10px">To make one: in Designer, select a photo and drag its corners or the move grip, then press "Save this spread as my template".${others.length ? ` You also have ${others.length} template${others.length > 1 ? 's' : ''} for other photo counts.` : ''}</p>`;
     }
   } else if (tab === 'text') {
-    head = `<div class="row"><button class="btn" data-pn="addtext">${ICON.text}Add text box</button><button class="btn" data-pn="importart">${ICON.import}Import PSD / PNG</button></div><span class="small muted">Click word art to add it. Select it on the spread to change its colour.</span>`;
+    head = `<button class="btn" data-pn="addtext">${ICON.text}Add text box</button>
+      <div class="row"><button class="btn grow" data-pn="importpng">${ICON.plus}Add PNG</button><button class="btn grow" data-pn="importpsd">${ICON.import}Import PSD</button></div>
+      <span class="small muted">Click word art to add it. You can also drop PNG or PSD files here.</span>`;
     const mine = userItems(state.settings);
-    const artTile = (it, del) => `<button class="art-tile" data-art-add="${esc(it.src)}" title="${esc(it.name)}"><img src="${esc(artUrl(it.src))}" alt="${esc(it.name)}" loading="lazy">${del ? `<span class="x" data-art-del="${esc(it.id)}" role="button" aria-label="Remove">${ICON.close}</span>` : ''}</button>`;
-    body = (mine.length ? `<div class="sec-title">My word art (${mine.length})</div><div class="art-grid">${mine.map((it) => artTile(it, true)).join('')}</div>` : '')
-      + `<div class="sec-title">Word art pack (${packItems().length})</div><div class="art-grid">${packItems().map((it) => artTile(it)).join('')}</div>`
+    const hidden = hiddenPackItems(state.settings);
+    const artTile = (it, kind) => `<button class="art-tile" data-art-add="${esc(it.src)}" title="${esc(it.name)}"><img src="${esc(artUrl(it.src))}" alt="${esc(it.name)}" loading="lazy">${kind === 'mine' ? `<span class="x" data-art-del="${esc(it.id)}" role="button" aria-label="Delete" title="Delete">${ICON.close}</span>` : kind === 'pack' ? `<span class="x" data-art-hide="${esc(it.id)}" role="button" aria-label="Hide" title="Hide from the pack">${ICON.close}</span>` : `<span class="x" data-art-unhide="${esc(it.id)}" role="button" aria-label="Show again" title="Show again" style="color:var(--gold)">${ICON.plus}</span>`}</button>`;
+    body = `<div class="art-drop" data-art-drop>Drop PNG or PSD files here</div>`
+      + (mine.length ? `<div class="sec-title">My word art (${mine.length})</div><div class="art-grid">${mine.map((it) => artTile(it, 'mine')).join('')}</div>` : '')
+      + `<div class="sec-title">Word art pack (${packItems(state.settings).length})</div><div class="art-grid">${packItems(state.settings).map((it) => artTile(it, 'pack')).join('')}</div>`
+      + (hidden.length ? `<div class="row" style="margin-top:10px"><span class="small muted grow">${hidden.length} hidden</span><button class="btn ghost" data-pn="showhidden" style="height:28px;font-size:12px">${state.showHiddenArt ? 'Close' : 'Show hidden'}</button></div>`
+        + (state.showHiddenArt ? `<div class="art-grid" style="opacity:.7">${hidden.map((it) => artTile(it, 'hidden')).join('')}</div>` : '') : '')
       + TEXT_PACKS.map((g) => `<div class="sec-title">${esc(g.group)}</div>` + g.items.map((it, k) =>
       `<button class="text-item" data-tp="${esc(g.group)}|${k}"><span style="font-family:${FONTS[it.font]};font-size:${it.t.length > 30 ? 14 : 18}px">${esc(it.t)}</span>${it.note ? `<span class="small muted">${esc(it.note)}</span>` : ''}</button>`).join('')).join('');
   } else {
@@ -647,6 +653,21 @@ function darken(hex, amt) {
 
 function wirePanel() {
   const panel = $('#r-panel');
+  const isFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  panel.addEventListener('dragover', (e) => {
+    if (!isFiles(e) || state.panelTab !== 'text') return;
+    e.preventDefault(); e.stopPropagation();
+    const z = panel.querySelector('[data-art-drop]'); if (z) z.classList.add('over');
+  });
+  panel.addEventListener('dragleave', (e) => { const z = panel.querySelector('[data-art-drop]'); if (z && !panel.contains(e.relatedTarget)) z.classList.remove('over'); });
+  panel.addEventListener('drop', (e) => {
+    if (!isFiles(e) || state.panelTab !== 'text') return;
+    e.preventDefault(); e.stopPropagation();
+    document.body.classList.remove('drag-over-app');
+    const paths = [...e.dataTransfer.files].map((f) => api.photos.pathForFile(f)).filter((p) => /\.(png|psd|psb)$/i.test(p || ''));
+    if (!paths.length) { toast('Drop PNG or PSD files to add word art.', true); refresh(['panel']); return; }
+    importArt(null, paths);
+  });
   panel.addEventListener('click', (e) => {
     const del = e.target.closest('[data-art-del]');
     if (del) {
@@ -655,6 +676,16 @@ function wirePanel() {
       const list = state.settings.userWordArt || [];
       const it = list.find((x) => x.id === del.dataset.artDel);
       api.settings.set({ userWordArt: list.filter((x) => x.id !== del.dataset.artDel) }).then((x) => { state.settings = x; if (it) api.wordart.remove(it.path); refresh(['panel']); });
+      return;
+    }
+    const hide = e.target.closest('[data-art-hide],[data-art-unhide]');
+    if (hide) {
+      e.stopPropagation();
+      const id = hide.dataset.artHide || hide.dataset.artUnhide;
+      const cur = new Set(state.settings.hiddenWordArt || []);
+      if (hide.dataset.artHide) cur.add(id); else cur.delete(id);
+      api.settings.set({ hiddenWordArt: [...cur] }).then((x) => { state.settings = x; refresh(['panel']); });
+      if (hide.dataset.artHide) toast('Hidden from the pack. Use "Show hidden" to bring it back.');
       return;
     }
     const addArtBtn = e.target.closest('[data-art-add]');
@@ -687,7 +718,9 @@ function wirePanel() {
     if (a === 'ideas') { state.layoutPage++; refresh(['panel']); }
     if (a === 'addtext') addText('Your text', 'serif');
     if (a === 'savetpl') saveAsTemplate(s);
-    if (a === 'importart') importArt();
+    if (a === 'importpng') importArt('png');
+    if (a === 'importpsd') importArt('psd');
+    if (a === 'showhidden') { state.showHiddenArt = !state.showHiddenArt; refresh(['panel']); }
     if (a === 'bgall') { const c = s.bg; mutate(() => p.spreads.forEach((x) => { x.bg = c; }), ['stage', 'strip']); toast('Background used on all spreads'); }
     if (a === 'lock') mutate(() => { s.locked = !s.locked; }, ['stage', 'panel']);
     if (a === 'delete') { if (confirm('Delete this spread? Its photos go back to the browser.')) mutate(() => { p.spreads.splice(si, 1); }); }
@@ -722,9 +755,10 @@ function addArt(src) {
   if (state.mode !== 'designer') toast('Word art added. Select it to change the colour or size.');
 }
 
-async function importArt() {
+async function importArt(kind, paths) {
   let res;
-  try { res = await api.wordart.import(); } catch (err) { toast('Could not read the file: ' + err.message, true); return; }
+  try { res = paths ? await api.wordart.importPaths(paths) : await api.wordart.import(kind); }
+  catch (err) { toast('Could not read the file: ' + err.message, true); return; }
   if (!res.items.length) { if (res.skipped.length) toast('No word art layers found in that file.', true); return; }
   state.settings = await api.settings.set({ userWordArt: [...res.items, ...(state.settings.userWordArt || [])] });
   refresh(['panel']);

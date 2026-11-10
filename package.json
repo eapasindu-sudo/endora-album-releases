@@ -1,7 +1,7 @@
 {
   "name": "endora-album",
   "productName": "Endora Album",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Professional wedding album design software for Sri Lankan photographers",
   "main": "main/main.js",
   "author": "Endora",
@@ -71,6 +71,30 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false
     },
-    "afterPack": "scripts/adhoc-sign.cjs"
+    "afterPack": "scripts/adhoc-sign.cjs",
+    "dmg": {
+      "title": "Endora Album ${version}",
+      "background": "build/background.png",
+      "iconSize": 96,
+      "window": {
+        "width": 660,
+        "height": 440
+      },
+      "contents": [
+        {
+          "x": 165,
+          "y": 180
+        },
+        {
+          "x": 495,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "releaseInfo": {
+      "releaseNotes": "### Download\n- **Windows:** `Endora-Album-Setup-x.x.x.exe`\n- **Mac M1 / M2 / M3 / M4:** `Endora-Album-x.x.x-arm64.dmg`\n- **Intel Mac:** `Endora-Album-x.x.x-x64.dmg`\n\n### Mac: first time opening (no Terminal needed)\n1. Open the `.dmg` and drag **Endora Album** into **Applications**.\n2. Open the app. If it says *\"Apple could not verify…\"*, press **Done**.\n3. Open **System Settings → Privacy & Security**, scroll down and press **Open Anyway**, then enter your Mac password.\n\nපළමු වතාවට: **System Settings → Privacy & Security** එකේ **Open Anyway** ඔබන්න. ඊට පස්සේ app එක සාමාන්‍ය විදිහට open වෙනවා.\n\nDownload the `.dmg` with Safari or Chrome. A file sent through WhatsApp or Telegram can show \"damaged\".\n\n### Windows: first time\nIf Windows shows *\"Windows protected your PC\"*, press **More info → Run anyway**."
+    }
   }
 }
