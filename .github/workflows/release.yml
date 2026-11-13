@@ -47,7 +47,7 @@ jobs:
 
       # macOS runners sometimes keep the new .dmg volume busy ("hdiutil detach" fails):
       # stop Spotlight indexing so electron-builder can unmount it.
-      - name: Mac: stop Spotlight indexing
+      - name: "Mac: stop Spotlight indexing"
         if: runner.os == 'macOS'
         run: sudo mdutil -a -i off || true
 
