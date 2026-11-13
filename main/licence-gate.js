@@ -42,6 +42,10 @@ function ensureLicence(o) {
         const n = await lic.refresh();
         if (!n.ok) { require('electron').dialog.showErrorBox(o.title, n.message || 'Your licence is no longer valid.'); app.quit(); }
       }, 6 * 3600 * 1000);
+      // Ctrl+Shift+L (Cmd+Shift+L on Mac) in any window: see or change the licence key
+      app.on('browser-window-created', (ev, w) => w.webContents.on('before-input-event', (e2, i) => {
+        if (i.type === 'keyDown' && (i.control || i.meta) && i.shift && String(i.key).toLowerCase() === 'l') licenceWindow(o, lic);
+      }));
       resolve(lic);
     };
     if (s.ok && s.state === 'licensed') return done();
@@ -56,4 +60,20 @@ function ensureLicence(o) {
   });
 }
 
-module.exports = { ensureLicence };
+/** Licence window opened from a menu or Ctrl+Shift+L while the app runs: shows the key and lets you change it. */
+let open = null;
+function licenceWindow(o, lic) {
+  if (open && !open.isDestroyed()) { open.focus(); return; }
+  const st = lic.status();
+  const msg = st.state === 'licensed' ? 'Licensed with key ' + st.key + (st.expires ? ' (until ' + st.expires + ')' : '') + '. Enter another key to replace it.' : (st.message || 'Enter your licence key.');
+  ipcMain.removeHandler('endora-lic-activate'); ipcMain.removeHandler('endora-lic-buy');
+  ipcMain.handle('endora-lic-activate', async (e, key) => {
+    try { const r = await lic.activate(key); if (r.ok) setTimeout(() => open && !open.isDestroyed() && open.close(), 600); return r; } catch (err) { return { ok: false, message: err.message || 'Could not reach the licence server.' }; }
+  });
+  ipcMain.handle('endora-lic-buy', () => shell.openExternal(o.buyUrl));
+  open = new BrowserWindow({ width: 480, height: 470, resizable: false, title: o.title + ' – Licence', backgroundColor: '#0b0a09', autoHideMenuBar: true, webPreferences: { nodeIntegration: true, contextIsolation: false } });
+  open.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(page({ title: o.title, message: msg })));
+  open.on('closed', () => { open = null; });
+}
+
+module.exports = { ensureLicence, licenceWindow };
