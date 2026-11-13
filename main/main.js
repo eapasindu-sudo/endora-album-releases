@@ -1,5 +1,6 @@
 'use strict';
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage } = require('electron');
+const { ensureLicence } = require('./licence-gate'); // Endora licence key
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -70,6 +71,7 @@ function createWindow() {
 app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 
 app.whenReady().then(async () => {
+  await ensureLicence({ product: 'album', title: 'Endora Album', buyUrl: 'https://tools.endoraweddingfilms.com/#album' });
   await fsp.mkdir(projectsDir(), { recursive: true });
   protocol.handle('endora', async (request) => {
     const u = new URL(request.url);
