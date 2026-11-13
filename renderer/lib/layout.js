@@ -595,14 +595,15 @@ export function autoBuild(photos, opts) {
   events.forEach((ev, ei) => {
     const n = alloc[ei];
     if (!n) return;
-    const counts = opts.useEvery ? evenCounts(n, ev.photos.length)
+    const lim = Math.max(1, Math.min(MAX_PER_SPREAD, opts.maxPer || MAX_PER_SPREAD));
+    const counts = (opts.useEvery ? evenCounts(n, ev.photos.length)
       : opts.range ? rangeCounts(n, ev.photos.length, opts.range[0], opts.range[1], random)
-      : countsFor(n, ev.photos.length, st.avg, random);
+      : countsFor(n, ev.photos.length, st.avg, random)).map((c) => Math.min(c, lim));
     let heroIdx = -1, opening = null;
     if (opts.hero !== false && n >= 2 && !opts.useEvery) {
       counts[0] = Math.min(3, ev.photos.length);
       if (opts.text) {
-        const ok = DESIGNS.filter((d) => d.opening && d.n <= ev.photos.length && d.n <= Math.max(3, counts[0] + 2));
+        const ok = DESIGNS.filter((d) => d.opening && d.n <= ev.photos.length && d.n <= Math.min(lim, Math.max(3, counts[0] + 2)));
         opening = ok.length ? ok[Math.floor(random() * ok.length)] : null;
         if (opening) counts[0] = opening.n;
       }
@@ -629,7 +630,7 @@ export function autoBuild(photos, opts) {
         let take = counts[s];
         if (!opts.useEvery && !opts.range && s > 0 && random() < 0.36) {
           const later = counts.slice(s + 1).reduce((a, b) => a + b, 0);
-          const ok = DESIGNS.filter((d) => !d.opening && Math.abs(d.n - take) <= 2 && chosen.length - d.n >= later && !recent.slice(-4).includes('d:' + d.id));
+          const ok = DESIGNS.filter((d) => !d.opening && d.n <= lim && Math.abs(d.n - take) <= 2 && chosen.length - d.n >= later && !recent.slice(-4).includes('d:' + d.id));
           if (ok.length) { const d = ok[Math.floor(random() * ok.length)]; take = d.n; forced = d; }
         }
         group = chosen.splice(0, take);

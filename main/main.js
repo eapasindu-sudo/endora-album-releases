@@ -283,20 +283,149 @@ ipcMain.handle('photos:process', async (e, projectId, files) => {
 });
 
 // Crop + resize one original for print/web export (sharp reads JPG, PNG, WebP, TIFF; EXIF rotation applied).
-ipcMain.handle('photos:crop', async (_e, file, rect, outW, outH) => {
+// Photographer's own rotate / flip on top of the EXIF orientation. xf = { rot: 0|90|180|270, flipH, flipV }
+function transformed(file, xf) {
+  let img = sharp(file, { failOn: 'none' }).rotate();
+  if (xf && xf.rot) img = img.rotate(xf.rot);
+  if (xf && xf.flipH) img = img.flop();
+  if (xf && xf.flipV) img = img.flip();
+  return img;
+}
+async function orientedSize(file, xf) {
+  const m = await sharp(file, { failOn: 'none' }).metadata();
+  let w = m.width, h = m.height;
+  if ((m.orientation || 1) >= 5) [w, h] = [h, w];
+  if (xf && (xf.rot === 90 || xf.rot === 270)) [w, h] = [h, w];
+  return { width: w, height: h };
+}
+
+ipcMain.handle('photos:crop', async (_e, file, rect, outW, outH, xf) => {
   if (!sharp) throw new Error('Image engine (sharp) is missing.');
   if (!isAllowed(file)) throw new Error('File not allowed');
   const left = Math.max(0, Math.round(rect.x)), top = Math.max(0, Math.round(rect.y));
-  const m = await sharp(file, { failOn: 'none' }).metadata();
-  const meta = (m.orientation || 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
+  const meta = await orientedSize(file, xf);
   const width = Math.max(1, Math.min(meta.width - left, Math.round(rect.w)));
   const height = Math.max(1, Math.min(meta.height - top, Math.round(rect.h)));
-  const buf = await sharp(file, { failOn: 'none' }).rotate()
+  const buf = await transformed(file, xf)
     .extract({ left, top, width, height })
     .resize(Math.max(1, Math.round(outW)), Math.max(1, Math.round(outH)), { fit: 'fill', kernel: 'lanczos3' })
     .jpeg({ quality: 96, chromaSubsampling: '4:4:4' })
     .toBuffer();
   return buf;
+});
+
+// Rotate / flip a photo: a new thumbnail is made next to the first one, the original file is never touched.
+ipcMain.handle('photos:derive', async (_e, projectId, photo, xf) => {
+  if (!sharp) throw new Error('Image engine (sharp) is missing.');
+  safeId(projectId);
+  if (!isAllowed(photo.path)) throw new Error('File not allowed');
+  const thumbDir = path.join(projectDir(projectId), 'thumbs');
+  await fsp.mkdir(thumbDir, { recursive: true });
+  const tag = `${xf.rot || 0}${xf.flipH ? 'h' : ''}${xf.flipV ? 'v' : ''}`;
+  const thumb = path.join(thumbDir, photo.id + (tag === '0' ? '' : '_' + tag) + '.jpg');
+  await transformed(photo.path, xf)
+    .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82 }).toFile(thumb);
+  allow(thumb);
+  const size = await orientedSize(photo.path, xf);
+  return { thumb, ...size };
+});
+
+// After the photographer saved the file in Photoshop / Lightroom: rebuild the thumbnail in place.
+ipcMain.handle('photos:refresh', async (_e, projectId, photo) => {
+  if (!sharp) throw new Error('Image engine (sharp) is missing.');
+  safeId(projectId);
+  if (!isAllowed(photo.path)) throw new Error('File not allowed');
+  const xf = { rot: photo.rot || 0, flipH: !!photo.flipH, flipV: !!photo.flipV };
+  await transformed(photo.path, xf)
+    .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82 }).toFile(photo.thumb + '.tmp.jpg');
+  await fsp.rename(photo.thumb + '.tmp.jpg', photo.thumb);
+  const size = await orientedSize(photo.path, xf);
+  const st = await fsp.stat(photo.path);
+  return { ...size, bytes: st.size };
+});
+
+// ---------- open a photo in Photoshop / Lightroom / the default app ----------
+const EDITOR_NAMES = { ps: 'Adobe Photoshop', lr: 'Adobe Lightroom' };
+function findEditor(kind) {
+  const globs = process.platform === 'darwin'
+    ? (kind === 'ps' ? ['/Applications/Adobe Photoshop*/Adobe Photoshop*.app', '/Applications/Adobe Photoshop*.app', '/Applications/Affinity Photo*.app']
+      : ['/Applications/Adobe Lightroom Classic/Adobe Lightroom Classic.app', '/Applications/Adobe Lightroom CC/Adobe Lightroom.app', '/Applications/Adobe Lightroom/Adobe Lightroom.app', '/Applications/Adobe Lightroom*.app'])
+    : (kind === 'ps' ? ['C:/Program Files/Adobe/Adobe Photoshop*/Photoshop.exe', 'C:/Program Files/Affinity/Photo*/Photo.exe']
+      : ['C:/Program Files/Adobe/Adobe Lightroom Classic/Lightroom.exe', 'C:/Program Files/Adobe/Adobe Lightroom CC/lightroom.exe', 'C:/Program Files/Adobe/Adobe Lightroom/lightroom.exe']);
+  for (const g of globs) {
+    const found = expandGlob(g);
+    if (found.length) return found.sort().pop();
+  }
+  return null;
+}
+// tiny glob: only "*" inside one path segment is supported
+function expandGlob(pattern) {
+  const parts = pattern.split('/');
+  let cur = [''];
+  for (const part of parts) {
+    const next = [];
+    for (const base of cur) {
+      const dir = base === '' ? (part === '' ? '/' : '') : base + '/';
+      if (!part.includes('*')) { const cand = dir + part; if (fs.existsSync(cand || '/')) next.push(cand); continue; }
+      const re = new RegExp('^' + part.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i');
+      let names = [];
+      try { names = fs.readdirSync(dir || '/'); } catch { continue; }
+      names.filter((n) => re.test(n)).forEach((n) => next.push(dir + n));
+    }
+    cur = next;
+    if (!cur.length) break;
+  }
+  return cur;
+}
+const watchers = new Map();
+function watchForSave(file, projectId, photo) {
+  if (watchers.has(file)) return;
+  let last = fs.statSync(file).mtimeMs;
+  const stop = () => { fs.unwatchFile(file); watchers.delete(file); };
+  const timer = setTimeout(stop, 4 * 60 * 60 * 1000);
+  fs.watchFile(file, { interval: 1500 }, async (cur) => {
+    if (cur.mtimeMs === last || cur.size === 0) return;
+    last = cur.mtimeMs;
+    await new Promise((r) => setTimeout(r, 800));   // let the editor finish writing
+    try {
+      const xf = { rot: photo.rot || 0, flipH: !!photo.flipH, flipV: !!photo.flipV };
+      await transformed(file, xf).resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toFile(photo.thumb + '.tmp.jpg');
+      await fsp.rename(photo.thumb + '.tmp.jpg', photo.thumb);
+      const size = await orientedSize(file, xf);
+      if (win && !win.isDestroyed()) win.webContents.send('photos:changed', { id: photo.id, projectId, ...size });
+    } catch (err) { console.warn('refresh after edit failed', err.message); }
+  });
+  watchers.set(file, () => { clearTimeout(timer); stop(); });
+}
+ipcMain.handle('photos:openWith', async (_e, projectId, photo, kind) => {
+  if (!isAllowed(photo.path)) throw new Error('File not allowed');
+  const s = await readSettings();
+  if (kind === 'folder') { shell.showItemInFolder(photo.path); return { ok: true }; }
+  if (kind === 'default') { const err = await shell.openPath(photo.path); if (err) throw new Error(err); watchForSave(photo.path, projectId, photo); return { ok: true }; }
+  let exe = (s.editors || {})[kind];
+  if (exe && !fs.existsSync(exe)) exe = null;
+  if (!exe) exe = findEditor(kind);
+  if (!exe) {
+    const res = await dialog.showOpenDialog(win, {
+      title: `Where is ${EDITOR_NAMES[kind]}?`, properties: ['openFile'],
+      defaultPath: process.platform === 'darwin' ? '/Applications' : 'C:/Program Files/Adobe',
+      filters: process.platform === 'darwin' ? [{ name: 'Applications', extensions: ['app'] }] : [{ name: 'Programs', extensions: ['exe'] }]
+    });
+    if (res.canceled || !res.filePaths.length) return { ok: false, canceled: true };
+    exe = res.filePaths[0];
+  }
+  const next = { ...s, editors: { ...(s.editors || {}), [kind]: exe } };
+  await fsp.writeFile(settingsFile(), JSON.stringify(next, null, 2));
+  const { spawn } = require('child_process');
+  const child = process.platform === 'darwin'
+    ? spawn('open', ['-a', exe, photo.path], { detached: true, stdio: 'ignore' })
+    : spawn(exe, [photo.path], { detached: true, stdio: 'ignore' });
+  child.on('error', (err) => console.warn('open editor failed', err.message));
+  child.unref();
+  watchForSave(photo.path, projectId, photo);
+  return { ok: true, app: path.basename(exe).replace(/\.(app|exe)$/i, '') };
 });
 
 // ---------- word art import (PSD layers / PNG) ----------

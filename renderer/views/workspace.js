@@ -188,7 +188,14 @@ function renderFloatbar() {
       <span class="small muted" style="padding:0 6px">Zoom</span>
       <input type="range" data-fb="zoom" min="1" max="3" step="0.02" value="${c.zoom || 1}" aria-label="Photo zoom">
       <button class="btn ghost" data-fb="center" style="height:30px;font-size:12px">Reset crop</button>
+      <button class="btn ghost" data-fb="fit" style="height:30px;font-size:12px" title="Frame takes the photo's own shape, nothing cropped">Fit</button>
+      <button class="icon-btn" data-fb="rotl" aria-label="Rotate left" title="Rotate left">↺</button>
+      <button class="icon-btn" data-fb="rotr" aria-label="Rotate right" title="Rotate right">↻</button>
+      <button class="icon-btn" data-fb="bw" aria-label="Black and white" title="Black &amp; white" style="${c.bw ? 'color:var(--gold)' : ''}">BW</button>
+      <button class="icon-btn" data-fb="border" aria-label="White border" title="White border" style="${c.border ? 'color:var(--gold)' : ''}">▢</button>
+      <button class="icon-btn" data-fb="shadow" aria-label="Shadow" title="Drop shadow" style="${c.shadow ? 'color:var(--gold)' : ''}">S</button>
       <button class="btn ghost" data-fb="star" style="height:30px;font-size:12px">${ICON.star}Hero</button>
+      <button class="icon-btn" data-fb="menu" aria-label="More" title="More (right-click the photo)">⋯</button>
       <button class="btn ghost danger" data-fb="remove" style="height:30px;font-size:12px">${ICON.trash}Remove</button>`;
   }
   if (!target || !html) return;
@@ -235,6 +242,12 @@ function wireStage() {
   });
   st.addEventListener('change', (e) => {
     if (e.target.dataset.stage === 'guides') { state.guides = e.target.checked; refresh(['stage']); }
+  });
+  st.addEventListener('contextmenu', (e) => {
+    const c = e.target.closest('[data-cell]'); const sp = e.target.closest('[data-spread]');
+    if (!c || !sp) return;
+    e.preventDefault();
+    openCellMenu(e.clientX, e.clientY, +sp.dataset.spread, +c.dataset.cell);
   });
   st.addEventListener('input', onFloatInput);
   st.addEventListener('change', (e) => { if (e.target.closest('.floatbar')) { saveSoon(); } });
@@ -322,7 +335,7 @@ function wireStage() {
     if (!c || !sp) return;
     if (+sp.dataset.spread === state.sel.spread && +c.dataset.cell === state.sel.cell) { e.preventDefault(); return; }
     e.dataTransfer.setData('application/x-endora-cell', sp.dataset.spread + ':' + c.dataset.cell);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'copyMove';
   });
   st.addEventListener('dragover', (e) => {
     const types = e.dataTransfer.types;
@@ -348,8 +361,10 @@ function wireStage() {
       if (s1 === s2 && c1 === c2) return refresh(['stage']);
       mutate(() => {
         const A = p.spreads[s1].cells[c1], B = p.spreads[s2].cells[c2];
-        const a = A.photoId; A.photoId = B.photoId; B.photoId = a;
-        Object.assign(A, focalFor(state.byId.get(A.photoId)), { zoom: 1 });
+        if (e.ctrlKey || e.metaKey || e.altKey) {
+          // hold Ctrl (Alt on Mac) while dragging: copy the photo into the other frame instead of swapping
+          B.photoId = A.photoId;
+        } else { const a = A.photoId; A.photoId = B.photoId; B.photoId = a; Object.assign(A, focalFor(state.byId.get(A.photoId)), { zoom: 1 }); }
         Object.assign(B, focalFor(state.byId.get(B.photoId)), { zoom: 1 });
       }, ['stage', 'strip', 'panel']);
     } else if (photoSrc) {
@@ -448,6 +463,12 @@ function onFloatClick(e) {
   } else if (state.sel.cell != null) {
     const c = s.cells[state.sel.cell];
     if (a === 'center') mutate(() => Object.assign(c, focalFor(state.byId.get(c.photoId)), { zoom: 1 }), ['stage', 'strip']);
+    if (a === 'fit') fitFrameToPhoto(s, state.sel.cell);
+    if (a === 'rotl' || a === 'rotr') rotatePhoto(c.photoId, a === 'rotl' ? -90 : 90);
+    if (a === 'bw') mutate(() => { c.bw = !c.bw; }, ['stage', 'strip']);
+    if (a === 'border') mutate(() => { c.border = c.border ? null : { w: 0.012, color: '#FFFFFF' }; }, ['stage', 'strip']);
+    if (a === 'shadow') mutate(() => { c.shadow = !c.shadow; }, ['stage', 'strip']);
+    if (a === 'menu') { const r = b.getBoundingClientRect(); openCellMenu(r.left, r.bottom + 4, state.sel.spread, state.sel.cell); }
     if (a === 'star') { const ph = state.byId.get(c.photoId); ph.star = !ph.star; saveSoon(); toast(ph.star ? 'Marked as a hero photo' : 'Hero mark removed'); refresh(['browser']); }
     if (a === 'remove') removePhotoFromSpread(state.sel.spread, state.sel.cell);
   }
@@ -496,6 +517,156 @@ function onFloatInput(e) {
   saveSoon();
 }
 
+// ================= photo tools (rotate, flip, fit, editors, clipboard) =================
+async function transformPhoto(photoId, patch) {
+  const ph = state.byId.get(photoId); if (!ph) return;
+  const xf = { rot: ((ph.rot || 0) + (patch.rot || 0) + 360) % 360, flipH: patch.flipH ? !ph.flipH : !!ph.flipH, flipV: patch.flipV ? !ph.flipV : !!ph.flipV };
+  try {
+    const r = await api.photos.derive(P().id, ph, xf);
+    snapshot();
+    Object.assign(ph, xf, { thumb: r.thumb, width: r.width, height: r.height, v: (ph.v || 0) + 1 });
+    P().spreads.forEach((sp) => sp.cells.forEach((c) => { if (c.photoId === photoId) Object.assign(c, focalFor(ph), { zoom: 1 }); }));
+    saveSoon(); refresh(['stage', 'strip', 'browser']);
+  } catch (err) { toast('Could not rotate: ' + err.message, true); }
+}
+const rotatePhoto = (id, deg) => transformPhoto(id, { rot: deg });
+
+// The frame takes the photo's own proportions (no crop), keeping its centre and staying on its page.
+function fitFrameToPhoto(s, ci) {
+  const c = s.cells[ci]; const ph = state.byId.get(c.photoId); if (!ph) return;
+  const A = sizeInfo(P().size).aspect;
+  const target = (ph.width / ph.height) / A;          // w/h in spread fractions
+  const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+  let w = c.w, h = w / target;
+  if (h > c.h) { h = c.h; w = h * target; }
+  const page = cx < 0.5 ? [0, 0.5] : [0.5, 1];
+  mutate(() => {
+    c.w = w; c.h = h;
+    c.x = Math.max(page[0], Math.min(page[1] - w, cx - w / 2));
+    c.y = Math.max(0, Math.min(1 - h, cy - h / 2));
+    Object.assign(c, focalFor(ph), { zoom: 1 });
+    s.layoutId = 'custom';
+  }, ['stage', 'strip', 'panel']);
+}
+
+async function openInEditor(photoId, kind) {
+  const ph = state.byId.get(photoId); if (!ph) return;
+  try {
+    const r = await api.photos.openWith(P().id, ph, kind);
+    if (r.ok && kind !== 'folder') toast(`Opened in ${r.app || (kind === 'default' ? 'your photo app' : kind)}. Save there and Endora updates the photo by itself.`);
+  } catch (err) { toast('Could not open: ' + err.message, true); }
+}
+
+const clip = { item: null };
+function copySelection() {
+  const s = curSpread(); if (!s) return;
+  if (state.sel.art != null && s.arts && s.arts[state.sel.art]) clip.item = { kind: 'art', data: JSON.parse(JSON.stringify(s.arts[state.sel.art])) };
+  else if (state.sel.text != null && s.texts[state.sel.text]) clip.item = { kind: 'text', data: JSON.parse(JSON.stringify(s.texts[state.sel.text])) };
+  else if (state.sel.cell != null && s.cells[state.sel.cell]) clip.item = { kind: 'cell', data: JSON.parse(JSON.stringify(s.cells[state.sel.cell])) };
+  else if (state.browser.sel.size) clip.item = { kind: 'photos', data: [...state.browser.sel] };
+  else return;
+  toast({ art: 'Word art copied', text: 'Text copied', cell: 'Photo copied', photos: `${clip.item.data.length} photos copied` }[clip.item.kind]);
+}
+function pasteSelection() {
+  const it = clip.item; const s = curSpread(); const si = state.sel.spread;
+  if (!it || !s) return;
+  if (it.kind === 'photos') { addPhotosToSpread(si, it.data); return; }
+  if (it.kind === 'cell') {
+    if (state.sel.cell != null && s.cells[state.sel.cell] && s.cells[state.sel.cell].photoId !== it.data.photoId) {
+      // paste onto a selected frame: replace its photo and copy the look
+      mutate(() => { const c = s.cells[state.sel.cell]; const { x, y, w, h } = c; Object.assign(c, it.data, { x, y, w, h }); }, ['stage', 'strip']);
+    } else if (s.cells.some((c) => c.photoId === it.data.photoId)) toast('That photo is already on this spread. Select a frame first to paste it there.');
+    else addPhotosToSpread(si, [it.data.photoId]);
+    return;
+  }
+  mutate(() => {
+    const d = { ...it.data, id: uid(), x: Math.min(0.9, it.data.x + 0.03), y: Math.min(0.9, it.data.y + 0.04) };
+    if (it.kind === 'text') { s.texts = s.texts || []; s.texts.push(d); state.sel = { spread: si, cell: null, text: s.texts.length - 1, art: null }; }
+    else { s.arts = s.arts || []; s.arts.push(d); state.sel = { spread: si, cell: null, text: null, art: s.arts.length - 1 }; }
+  }, ['stage', 'strip']);
+}
+function deleteSelection() {
+  const s = curSpread(); if (!s) return;
+  if (state.sel.art != null && s.arts && s.arts[state.sel.art]) mutate(() => { s.arts.splice(state.sel.art, 1); state.sel.art = null; }, ['stage', 'strip']);
+  else if (state.sel.text != null && s.texts[state.sel.text]) mutate(() => { s.texts.splice(state.sel.text, 1); state.sel.text = null; }, ['stage', 'strip']);
+  else if (state.sel.cell != null && s.cells[state.sel.cell]) removePhotoFromSpread(state.sel.spread, state.sel.cell);
+}
+export function workspaceKey(e) {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+  if (typing || document.querySelector('.overlay')) return false;
+  const mod = e.metaKey || e.ctrlKey; const k = e.key.toLowerCase();
+  if (mod && k === 'c') { copySelection(); return true; }
+  if (mod && k === 'v') { pasteSelection(); return true; }
+  if (mod && k === 'd') { copySelection(); pasteSelection(); return true; }
+  if (mod && k === 'a') {
+    const inBrowser = $('#r-browser').contains(document.activeElement) || state.browser.sel.size;
+    if (inBrowser) { filteredPhotos().list.forEach((x) => state.browser.sel.add(x.id)); paintSelection(); return true; }
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && (state.sel.cell != null || state.sel.text != null || state.sel.art != null)) { deleteSelection(); return true; }
+  if (e.key === 'Escape') { closeMenu(); if (state.browser.sel.size) { state.browser.sel.clear(); paintSelection(); } state.sel.cell = null; state.sel.text = null; state.sel.art = null; refresh(['stage']); return true; }
+  if (k === 'r' && !mod && state.sel.cell != null) { const c = curSpread().cells[state.sel.cell]; if (c) rotatePhoto(c.photoId, e.shiftKey ? -90 : 90); return true; }
+  return false;
+}
+
+// Right-click menu (photo frames on the stage, photos in the browser)
+function closeMenu() { document.querySelectorAll('.ctx-menu').forEach((m) => m.remove()); }
+function showMenu(x, y, items) {
+  closeMenu();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.innerHTML = items.map((it, i) => it === '-' ? '<div class="sep"></div>' : `<button data-i="${i}" ${it.disabled ? 'disabled' : ''}>${it.label}${it.hint ? `<span class="hint">${it.hint}</span>` : ''}</button>`).join('');
+  document.body.appendChild(m);
+  const W = m.offsetWidth, H = m.offsetHeight;
+  m.style.left = Math.min(x, window.innerWidth - W - 6) + 'px';
+  m.style.top = Math.min(y, window.innerHeight - H - 6) + 'px';
+  m.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; closeMenu(); items[+b.dataset.i].run(); });
+  setTimeout(() => {
+    const off = (e) => { if (!m.contains(e.target)) { closeMenu(); window.removeEventListener('pointerdown', off, true); } };
+    window.addEventListener('pointerdown', off, true);
+  }, 0);
+}
+function photoMenuItems(photoId, cellCtx) {
+  const ph = state.byId.get(photoId); if (!ph) return [];
+  const items = [
+    { label: 'Edit in Photoshop', run: () => openInEditor(photoId, 'ps') },
+    { label: 'Edit in Lightroom', run: () => openInEditor(photoId, 'lr') },
+    { label: 'Open in default photo app', run: () => openInEditor(photoId, 'default') },
+    { label: 'Show file in folder', run: () => openInEditor(photoId, 'folder') },
+    '-',
+    { label: 'Rotate right 90°', hint: 'R', run: () => rotatePhoto(photoId, 90) },
+    { label: 'Rotate left 90°', hint: 'Shift+R', run: () => rotatePhoto(photoId, -90) },
+    { label: 'Flip horizontal', run: () => transformPhoto(photoId, { flipH: true }) },
+    { label: 'Flip vertical', run: () => transformPhoto(photoId, { flipV: true }) },
+    ...(ph.rot || ph.flipH || ph.flipV ? [{ label: 'Reset rotation', run: () => transformPhoto(photoId, { rot: -(ph.rot || 0), flipH: !!ph.flipH, flipV: !!ph.flipV }) }] : []),
+    '-',
+    { label: ph.star ? 'Remove hero mark' : 'Mark as hero photo', run: () => { ph.star = !ph.star; saveSoon(); refresh(['browser', 'stage']); } }
+  ];
+  if (cellCtx) {
+    const { s, ci } = cellCtx; const c = s.cells[ci];
+    items.splice(10, 0,
+      { label: 'Fit frame to photo (original shape)', run: () => fitFrameToPhoto(s, ci) },
+      { label: 'Reset crop', run: () => mutate(() => Object.assign(c, focalFor(ph), { zoom: 1 }), ['stage', 'strip']) },
+      { label: (c.bw ? '✓ ' : '') + 'Black & white', run: () => mutate(() => { c.bw = !c.bw; }, ['stage', 'strip']) },
+      { label: (c.border ? '✓ ' : '') + 'White border', run: () => mutate(() => { c.border = c.border ? null : { w: 0.012, color: '#FFFFFF' }; }, ['stage', 'strip']) },
+      { label: (c.shadow ? '✓ ' : '') + 'Drop shadow', run: () => mutate(() => { c.shadow = !c.shadow; }, ['stage', 'strip']) },
+      '-',
+      { label: 'Copy', hint: 'Ctrl+C', run: () => { state.sel.cell = ci; copySelection(); } },
+      { label: 'Paste', hint: 'Ctrl+V', disabled: !clip.item, run: () => { state.sel.cell = ci; pasteSelection(); } },
+      '-');
+    items.push({ label: 'Remove from spread', hint: 'Del', run: () => removePhotoFromSpread(state.sel.spread, ci) });
+  } else {
+    items.push('-', { label: 'Add to this spread', run: () => addPhotosToSpread(state.sel.spread, state.browser.sel.has(photoId) ? [...state.browser.sel] : [photoId]) },
+      { label: 'New spread with selected', run: () => newSpreadWith(state.browser.sel.has(photoId) ? [...state.browser.sel] : [photoId], P().spreads.length) },
+      { label: 'Copy', hint: 'Ctrl+C', run: () => { if (!state.browser.sel.has(photoId)) { state.browser.sel.clear(); state.browser.sel.add(photoId); paintSelection(); } copySelection(); } });
+  }
+  return items;
+}
+function openCellMenu(x, y, si, ci) {
+  const s = P().spreads[si]; if (!s || !s.cells[ci]) return;
+  if (state.sel.spread !== si || state.sel.cell !== ci) { state.sel = { spread: si, cell: ci, text: null, art: null }; refresh(['stage', 'panel', 'strip']); }
+  showMenu(x, y, photoMenuItems(s.cells[ci].photoId, { s, ci }));
+}
+
 // ================= spread operations =================
 function relayout(spread, photos, seed) {
   const p = P();
@@ -515,9 +686,11 @@ export function addPhotosToSpread(si, ids) {
   const have = new Set(s.cells.map((c) => c.photoId));
   const add = ids.filter((id) => !have.has(id)).map((id) => state.byId.get(id));
   const photos = spreadPhotos(s).concat(add);
-  if (photos.length > MAX_PER_SPREAD) { toast(`A spread can hold up to ${MAX_PER_SPREAD} photos. Make a new spread for the rest.`, true); return; }
+  const lim = limitPerSpread();
+  if (photos.length > lim) { toast(`Limit is ${lim} photos per spread (this one would have ${photos.length}). Change the limit in Settings, or make a new spread.`, true); return false; }
   if (!state.autoLayout) toast('Auto layout is off, so the layout was picked once for the new photo count.');
   mutate(() => { p.spreads[si] = relayout(s, photos); state.sel = { spread: si, cell: null, text: null }; });
+  return true;
 }
 
 function removePhotoFromSpread(si, ci) {
@@ -533,8 +706,9 @@ function removePhotoFromSpread(si, ci) {
 
 function newSpreadWith(ids, at) {
   const p = P();
-  const photos = ids.slice(0, MAX_PER_SPREAD).map((id) => state.byId.get(id)).filter(Boolean);
+  const photos = ids.slice(0, limitPerSpread()).map((id) => state.byId.get(id)).filter(Boolean);
   if (!photos.length) return;
+  if (ids.length > photos.length) toast(`Only the first ${photos.length} photos were used (limit per spread, see Settings).`);
   const pick = bestTemplate(photos, p.size, p.build.style, { allowFull: photos.length <= 2 }) || bestTemplate(photos, p.size, 'Classic', { allowFull: true });
   mutate(() => {
     const prev = p.spreads[at - 1];
@@ -555,7 +729,7 @@ function changeCount(delta) {
   const p = P(); const si = state.sel.spread; const s = p.spreads[si];
   const photos = spreadPhotos(s);
   if (delta > 0) {
-    if (photos.length >= MAX_PER_SPREAD) return toast(`${MAX_PER_SPREAD} photos is the most for one spread.`);
+    if (photos.length >= limitPerSpread()) return toast(`${limitPerSpread()} photos is the limit for one spread (change it in Settings).`);
     const near = photos.length ? photos[Math.floor(photos.length / 2)].takenAt : null;
     const add = nextUnused(1, near);
     if (!add.length) return toast('No unused photos left. Import more or drag one from the browser.');
@@ -861,12 +1035,27 @@ function filteredPhotos() {
   return { list, used };
 }
 
+const limitPerSpread = () => Math.max(1, Math.min(MAX_PER_SPREAD, +(state.settings.maxPerSpread || 12)));
+
+function selInfo() {
+  const b = state.browser; const p = P();
+  const nSel = b.sel.size;
+  if (!nSel) return '';
+  const s = p.spreads[state.sel.spread];
+  const have = s ? s.cells.length : 0;
+  const fresh = s ? [...b.sel].filter((id) => !s.cells.some((c) => c.photoId === id)).length : nSel;
+  const lim = limitPerSpread();
+  const after = have + fresh;
+  return `<span class="small" style="margin-left:6px">${nSel} selected</span>${s ? `<span class="small ${after > lim ? 'warn' : 'muted'}" title="Photos per spread limit: ${lim} (change it in Settings)">· spread ${state.sel.spread + 1}: ${have} → ${after} / ${lim}</span>` : ''}`;
+}
+
 function renderBrowser() {
   const p = P();
   const br = $('#r-browser');
   const b = state.browser;
   const { list, used } = filteredPhotos();
   const nSel = b.sel.size;
+  const grid0 = br.querySelector('#br-grid'); const scrollTop = grid0 ? grid0.scrollTop : 0;
   br.innerHTML = `
     <div class="browser-resize" id="br-resize" title="Drag to resize"></div>
     <div class="busy-wrap" id="r-busy"></div>
@@ -876,8 +1065,8 @@ function renderBrowser() {
       <label class="check small" style="padding:0 4px"><input type="checkbox" data-br="autolayout" ${state.autoLayout ? 'checked' : ''}>Auto layout</label>
       <select data-br="filter" aria-label="Show">${FILTERS.map(([v, l]) => `<option value="${v}" ${b.filter === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <select data-br="part" aria-label="Part of the day"><option value="">All parts</option>${(p.events || []).map((e) => `<option ${b.part === e.name ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</select>
-      ${nSel ? `<span class="small" style="margin-left:6px">${nSel} selected</span>
-        <button class="btn ghost" data-br="star" style="height:30px">${ICON.star}Hero</button>
+      <span id="br-selinfo">${selInfo()}</span>
+      ${nSel ? `<button class="btn ghost" data-br="star" style="height:30px">${ICON.star}Hero</button>
         <button class="btn ghost" data-br="leaveout" style="height:30px">Leave out</button>
         <button class="btn ghost" data-br="include" style="height:30px">Include</button>
         <button class="btn ghost" data-br="tospread" style="height:30px">${ICON.plus}Add to spread</button>
@@ -900,7 +1089,18 @@ function renderBrowser() {
       }).join('')}
     </div>
     ${!p.photos.length && !state.busy ? `<div class="drop-hint" style="top:46px">${ICON.import}<span>Drop photos or a folder anywhere in this window</span></div>` : ''}`;
+  const grid = br.querySelector('#br-grid'); if (grid && scrollTop) grid.scrollTop = scrollTop;
   renderBusy();
+}
+
+// Selection changes only touch classes, so the grid never jumps back to the top.
+function paintSelection() {
+  const b = state.browser; const br = $('#r-browser');
+  br.querySelectorAll('[data-ph]').forEach((el) => el.classList.toggle('sel', b.sel.has(el.dataset.ph)));
+  const bar = br.querySelector('.browser-bar');
+  const hasBtns = !!br.querySelector('[data-br=tospread]');
+  if ((b.sel.size > 0) !== hasBtns) { refresh(['browser']); return; }
+  const info = br.querySelector('#br-selinfo'); if (info) info.innerHTML = selInfo();
 }
 
 function renderBusy() {
@@ -926,16 +1126,21 @@ function wireBrowser() {
       } else if (e.metaKey || e.ctrlKey) { b.sel.has(id) ? b.sel.delete(id) : b.sel.add(id); }
       else { const only = b.sel.size === 1 && b.sel.has(id); b.sel.clear(); if (!only) b.sel.add(id); }
       lastClicked = id;
-      refresh(['browser']);
+      paintSelection();
       return;
     }
     const a = t.dataset.br;
     if (a === 'import') pickImport();
     if (a === 'autobuild') autoBuildModal();
-    if (a === 'clearsel') { b.sel.clear(); refresh(['browser']); }
+    if (a === 'clearsel') { b.sel.clear(); paintSelection(); }
     if (a === 'star') { const all = [...b.sel].every((id) => state.byId.get(id).star); b.sel.forEach((id) => { state.byId.get(id).star = !all; }); saveSoon(); refresh(['browser']); }
     if (a === 'leaveout' || a === 'include') { b.sel.forEach((id) => { const ph = state.byId.get(id); ph.manual = a === 'leaveout' ? 'drop' : 'keep'; }); recull(); refresh(['browser']); }
-    if (a === 'tospread') { if (!p.spreads.length) newSpreadWith([...b.sel], 0); else addPhotosToSpread(state.sel.spread, [...b.sel]); b.sel.clear(); }
+    if (a === 'tospread') { const ids = [...b.sel]; if (!p.spreads.length) newSpreadWith(ids, 0); else if (addPhotosToSpread(state.sel.spread, ids) === false) return; b.sel.clear(); refresh(['browser']); }
+  });
+  br.addEventListener('contextmenu', (e) => {
+    const t = e.target.closest('[data-ph]'); if (!t) return;
+    e.preventDefault();
+    showMenu(e.clientX, e.clientY, photoMenuItems(t.dataset.ph, null));
   });
   br.addEventListener('dblclick', (e) => {
     const t = e.target.closest('[data-ph]');

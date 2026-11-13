@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('api', {
     expandDropped: inv('photos:expandDropped'),
     process: inv('photos:process'),
     crop: inv('photos:crop'),
+    derive: inv('photos:derive'),
+    refresh: inv('photos:refresh'),
+    openWith: inv('photos:openWith'),
+    onChanged: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('photos:changed', h); return () => ipcRenderer.removeListener('photos:changed', h); },
     pathForFile: (file) => webUtils.getPathForFile(file),
     onProgress: (cb) => {
       const h = (_e, d) => cb(d);

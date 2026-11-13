@@ -88,8 +88,16 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
     ext.x = Math.max(0, Math.min(ext.x, p.width - ext.w));
     ext.y = Math.max(0, Math.min(ext.y, p.height - ext.h));
     ext.w = Math.min(ext.w, p.width); ext.h = Math.min(ext.h, p.height);
-    const buf = await api().photos.crop(p.path, ext, w, h);
+    const buf = await api().photos.crop(p.path, ext, w, h, { rot: p.rot || 0, flipH: !!p.flipH, flipV: !!p.flipV });
     const bmp = await createImageBitmap(new Blob([buf], { type: 'image/jpeg' }));
+    if (c.shadow) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = trimH * 0.03; ctx.shadowOffsetX = trimH * 0.006; ctx.shadowOffsetY = trimH * 0.012;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      if (c.round === 'circle') ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); else ctx.rect(x, y, w, h);
+      ctx.fill(); ctx.restore();
+    }
     if (c.border) {
       const b = c.border.w * trimH;
       ctx.fillStyle = c.border.color || '#FFFFFF';
@@ -99,6 +107,7 @@ export async function renderSpread(spread, project, byId, mode = 'print', maxW =
     }
     ctx.save();
     if (c.fade != null) ctx.globalAlpha = c.fade;
+    if (c.bw) ctx.filter = 'grayscale(1)';
     if (c.round === 'circle') { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip(); }
     if (c.round === 'arch') {
       const r = Math.min(w / 2, h);

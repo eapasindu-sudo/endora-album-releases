@@ -3,7 +3,7 @@ import { toast, debounce } from './lib/dom.js';
 import { analyse, scoreSet, applyCull } from './lib/analysis.js';
 import { groupEvents, uid, STANDARD_SIZES } from './lib/layout.js';
 import { renderHome } from './views/home.js';
-import { renderWorkspace, refresh } from './views/workspace.js';
+import { renderWorkspace, refresh, workspaceKey } from './views/workspace.js';
 import { renderUpdateBanner } from './views/modals.js';
 import { loadPack, setArtSettings } from './lib/wordart.js';
 
@@ -200,6 +200,7 @@ window.addEventListener('keydown', (e) => {
   if (state.view !== 'workspace') return;
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   const mod = e.metaKey || e.ctrlKey;
+  if (workspaceKey(e)) { e.preventDefault(); return; }
   if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
   else if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); redo(); }
   else if (!typing && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !document.querySelector('.overlay')) {
@@ -210,3 +211,13 @@ window.addEventListener('keydown', (e) => {
 });
 
 boot();
+
+// A photo saved in Photoshop / Lightroom: the thumbnail was rebuilt, show it again everywhere.
+api.photos.onChanged((d) => {
+  const p = state.project;
+  if (!p || p.id !== d.projectId) return;
+  const ph = state.byId.get(d.id); if (!ph) return;
+  ph.width = d.width; ph.height = d.height; ph.v = (ph.v || 0) + 1;
+  saveSoon();
+  if (state.view === 'workspace') refresh(['stage', 'strip', 'browser']);
+});

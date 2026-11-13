@@ -5,7 +5,7 @@ import { FONTS } from './textpacks.js';
 import { artUrl } from './wordart.js';
 
 export function photoUrl(p) {
-  return p ? window.api.fileUrl(p.thumb) : '';
+  return p ? window.api.fileUrl(p.thumb) + (p.v ? '?v=' + p.v : '') : '';
 }
 
 /**
@@ -30,9 +30,9 @@ export function spreadHTML(spread, project, byId, opts = {}) {
     const sel = opts.selCell === ci ? ' sel' : '';
     const ca = opts.interactive ? ` data-cell="${ci}" draggable="true"` : '';
     const deco = (c.round === 'circle' ? 'border-radius:50%;' : c.round === 'arch' ? `border-radius:${(c.w * W / 2).toFixed(1)}px ${(c.w * W / 2).toFixed(1)}px 0 0;` : '')
-      + (c.fade != null ? `opacity:${c.fade};background:transparent;` : '') + (c.border ? `box-shadow:0 0 0 ${Math.max(1, c.border.w * H).toFixed(1)}px ${esc(c.border.color || '#fff')};z-index:1;` : '');
+      + (c.fade != null ? `opacity:${c.fade};background:transparent;` : '') + (c.border || c.shadow ? `box-shadow:${[c.border ? `0 0 0 ${Math.max(1, c.border.w * H).toFixed(1)}px ${esc(c.border.color || '#fff')}` : '', c.shadow ? `${(H * 0.006).toFixed(1)}px ${(H * 0.012).toFixed(1)}px ${(H * 0.03).toFixed(1)}px rgba(0,0,0,.35)` : ''].filter(Boolean).join(',')};z-index:1;` : '');
     out += `<div class="cell${sel}"${ca} style="left:${(c.x * W).toFixed(2)}px;top:${(c.y * H).toFixed(2)}px;width:${(c.w * W).toFixed(2)}px;height:${(c.h * H).toFixed(2)}px;${deco}">`;
-    if (p) out += `<img src="${esc(photoUrl(p))}" alt="" loading="lazy" style="object-position:${fx}% ${fy}%;--fx:${fx}%;--fy:${fy}%;transform:scale(${z})">`;
+    if (p) out += `<img src="${esc(photoUrl(p))}" alt="" loading="lazy" style="object-position:${fx}% ${fy}%;--fx:${fx}%;--fy:${fy}%;transform:scale(${z})${c.bw ? ';filter:grayscale(1)' : ''}">`;
     if (opts.showDpi && p) {
       const dpi = cellDpi(c, p, project.size);
       if (dpi < 200) out += `<span class="lowres">${dpi} DPI</span>`;

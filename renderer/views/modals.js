@@ -273,6 +273,15 @@ export function settingsModal() {
     m.el.querySelector('[data-st]').innerHTML = `${head('Settings')}
       <div class="modal-body col" style="gap:14px">
         <label class="field">Studio name (shown to clients on the album link)<input type="text" name="studio" value="${esc(state.settings.studio || '')}" placeholder="Endora Wedding Films"></label>
+        <div class="row" style="gap:12px;align-items:flex-end">
+          <label class="field grow">Photos per spread limit<input type="number" name="maxPerSpread" min="1" max="40" value="${+(state.settings.maxPerSpread || 12)}"></label>
+          <span class="small muted" style="padding-bottom:10px">Adding more than this to one spread is blocked. Auto Build keeps to it too.</span>
+        </div>
+        <div class="box col" style="gap:6px">
+          <b>Photo editors</b>
+          <span class="small muted">Right-click a photo → Edit in Photoshop / Lightroom. Endora finds the app by itself; if it asks, point it to the app once.${state.settings.editors && (state.settings.editors.ps || state.settings.editors.lr) ? '<br>Photoshop: ' + esc(state.settings.editors.ps || 'auto') + ' · Lightroom: ' + esc(state.settings.editors.lr || 'auto') : ''}</span>
+          ${state.settings.editors && (state.settings.editors.ps || state.settings.editors.lr) ? '<div><button class="btn ghost" data-up="forgeteditors" style="height:28px;font-size:12px">Find the apps again</button></div>' : ''}
+        </div>
         <div class="box col" style="gap:8px">
           <div class="row"><b class="grow">Client links (Cloudflare)</b>${state.cloud && state.cloud.connected ? '<button class="btn danger" data-up="disconnect">Disconnect</button>' : '<button class="btn gold" data-up="connect">Connect Cloudflare</button>'}</div>
           <span class="small muted">${state.cloud && state.cloud.connected ? 'Connected' + (state.cloud.accountName ? ' to ' + esc(state.cloud.accountName) : '') + ' · ' + esc(state.cloud.url) : 'Not connected yet. Needed for Send to client.'}</span>
@@ -293,6 +302,7 @@ export function settingsModal() {
   const close = () => { clearInterval(off); m.close(); };
   m.el.addEventListener('change', async (e) => {
     if (e.target.name === 'studio') { state.settings = await api.settings.set({ studio: e.target.value.trim() }); if (state.view === 'home') render(); }
+    if (e.target.name === 'maxPerSpread') { state.settings = await api.settings.set({ maxPerSpread: Math.max(1, Math.min(40, +e.target.value || 12)) }); }
   });
   m.el.addEventListener('click', async (e) => {
     const dv = e.target.closest('[data-delvid]'), da = e.target.closest('[data-delalb]');
@@ -306,6 +316,7 @@ export function settingsModal() {
     if (!t) return;
     if (t.dataset.up === 'test') { testing = true; test = null; draw(); test = await api.cloud.test().catch((err) => ({ ok: false, message: err.message })); testing = false; draw(); return; }
     if (t.dataset.up === 'openurl') { api.cloud.openUrl(); return; }
+    if (t.dataset.up === 'forgeteditors') { state.settings = await api.settings.set({ editors: {} }); draw(); return; }
     if (t.dataset.x !== undefined) {
       const inp = m.el.querySelector('[name=studio]');
       if (inp && inp.value.trim() !== (state.settings.studio || '')) state.settings = await api.settings.set({ studio: inp.value.trim() });
@@ -498,7 +509,7 @@ function runBuild() {
     hero: b.opts.hero, text: b.opts.text, color: b.opts.color, starsOnly: b.opts.starsOnly,
     newSpreadPerPart: b.opts.newSpreadPerPart, useEvery: b.useEvery, reuse: b.reuse,
     range: b.perSpread === 'range' ? [b.min, b.max] : null,
-    events: p.events, titles, skip, couple: p.couple, date: p.date,
+    events: p.events, titles, skip, couple: p.couple, date: p.date, maxPer: Math.max(1, Math.min(MAX_PER_SPREAD, +(state.settings.maxPerSpread || 12))),
     userTemplates: b.opts.myTemplates !== false ? (state.settings.userTemplates || []) : []
   });
   mutate(() => {
